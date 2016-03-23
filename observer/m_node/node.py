@@ -245,8 +245,10 @@ class Node:
         if self.state == NODE_RUNNING:
             self.controller.stop()
             self.serial.stop()
-            self.state = NODE_HALTED
             dispatcher.disconnect(self.send, m_common.IO_RAW_TO_NODE)
+        elif self.state == NODE_CONFIGURED:
+            self.init()
+        self.state = NODE_HALTED
 
     def reset(self):
         if self.state == NODE_RUNNING:
@@ -255,6 +257,7 @@ class Node:
             self.controller.reset()
         if self.serial:
             self.serial.reset()
+        self.state = NODE_READY
 
     def load(self, firmware, firmware_id):
         if self.state == NODE_RUNNING:
@@ -316,6 +319,7 @@ class Node:
             return m_common.ERROR_CONFIGURATION_MISSING_ARGUMENT.format(missing_arguments)
         # issue the command
         try:
+            print('command: '+command)
             self.commands[command](**arguments)
             bottle.response.status = m_common.REST_REQUEST_FULFILLED
             # return the node status
