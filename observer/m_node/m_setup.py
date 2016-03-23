@@ -129,18 +129,17 @@ class Loader:
         self.temp_directory = tempfile.mkdtemp()
         archive_path = os.path.join(self.temp_directory, CONFIGURATION_FILENAME)
         profile_archive.save(archive_path)
-        archive = tarfile.open(archive_path)
+        with tarfile.open(archive_path) as archive:
+            # validate the archive content
+            archive_contents = archive.getnames()
+            if any(elt not in archive_contents for elt in CONFIGURATION_MANDATORY_MEMBERS):
+                # invalid archive content, raise an exception
+                missing_arguments = filter(lambda argument: argument not in archive_contents,
+                                           CONFIGURATION_MANDATORY_MEMBERS)
+                raise m_common.NodeSetupException(m_common.ERROR_CONFIGURATION_MISSING_ARGUMENT.format(missing_arguments))
 
-        # validate the archive content
-        archive_contents = archive.getnames()
-        if any(elt not in archive_contents for elt in CONFIGURATION_MANDATORY_MEMBERS):
-            # invalid archive content, raise an exception
-            missing_arguments = filter(lambda argument: argument not in archive_contents,
-                                       CONFIGURATION_MANDATORY_MEMBERS)
-            raise m_common.NodeSetupException(m_common.ERROR_CONFIGURATION_MISSING_ARGUMENT.format(missing_arguments))
-
-        # decompress the archive
-        archive.extractall(self.temp_directory)
+            # decompress the archive
+            archive.extractall(self.temp_directory)
 
         # read the manifest
         with open(os.path.join(self.temp_directory, CONFIGURATION_MANIFEST), 'r') as self.manifest_file:

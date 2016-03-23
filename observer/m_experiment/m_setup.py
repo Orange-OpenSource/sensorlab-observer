@@ -88,17 +88,17 @@ class Loader:
         self.temp_directory = tempfile.mkdtemp()
         archive_path = os.path.join(self.temp_directory, PROFILE_FILENAME)
         behavior_archive.save(archive_path)
-        archive = tarfile.open(archive_path)
-        # validate the archive content
-        archive_contents = archive.getnames()
-        if any(elt not in archive_contents for elt in CONFIGURATION_MANDATORY_MEMBERS):
-            # invalid archive content, raise an exception
-            missing_elements = filter(lambda element: element not in archive_contents, CONFIGURATION_MANDATORY_MEMBERS)
-            raise m_common.ExperimentSetupException(
-                m_common.ERROR_CONFIGURATION_MISSING_ARGUMENT.format(
-                    'missing elements: '+str(missing_elements)+ ' of archive_contents: '+str(archive_contents)))
-        # decompress the archive
-        archive.extractall(self.temp_directory)
+        with tarfile.open(archive_path) as archive:
+            # validate the archive content
+            archive_contents = archive.getnames()
+            if any(elt not in archive_contents for elt in CONFIGURATION_MANDATORY_MEMBERS):
+                # invalid archive content, raise an exception
+                missing_elements = filter(lambda element: element not in archive_contents, CONFIGURATION_MANDATORY_MEMBERS)
+                raise m_common.ExperimentSetupException(
+                    m_common.ERROR_CONFIGURATION_MISSING_ARGUMENT.format(
+                        'missing elements: '+str(missing_elements)+ ' of archive_contents: '+str(archive_contents)))
+            # decompress the archive
+            archive.extractall(self.temp_directory)
         # read the manifest
         with open(os.path.join(self.temp_directory, EXPERIMENT_MANIFEST), 'r') as manifest_file:
             self.manifest = yaml.load(manifest_file.read())
