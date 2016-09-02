@@ -63,6 +63,7 @@ The profile archive is of type **tar.gz** and contains the following directories
 The manifest file complies to the YAML specification.
 It must contain the following structure: 
 
+- `hardware`:	description of the hardware
 - `controller`:
     - `commands`:
         - `load`        :   load a firmware into the node
@@ -105,7 +106,7 @@ Placeholders are resolved when the manifest is parsed for the first time.
 The experiment module provides the user with a way to submit an experiment script that will be executed
 by the supervisor. The experiment module exposes 4 methods to submit and control experiments:
 
-- `setup`(`experiment_id`,`behavior`)     : setup an experiment scenario.
+- `setup`(`experiment_id`,`behavior`)   : setup an experiment scenario.
 - `start`(`none`)                       :   start the experiment.
 - `stop`(`none`)                        :   stop the experiment.
 - `reset`(`none`)                       :   reset the experiment module.
@@ -149,7 +150,7 @@ It must contain the following structure:
 The I/O module is in charge of relaying 'messages' to and from the platform using the MQTT protocol.
 The I/O module exposes 3 methods, respectively to setup, initiate and terminate the platform broker connection:
 
-- `setup`(`source`, `address`, `port`, `keepalive_period`)      :   setup the I/O module to connect to address:port
+- `setup`(`source`, `address`, `port`, `keepalive_period`)      :   setup the I/O module to connect to address:port (start being called in the process)
 - `start`(`none`)                                               :   connect the I/O module.
 - `stop`(`none`)                                                :   disconnect the I/O module.
 - `status`(`none`)                                              :   Returns information on the I/O module.

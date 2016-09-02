@@ -59,12 +59,12 @@ class Scheduler:
     def __init__(self):
         self.regex = re.compile(r'((?P<days>\d+?)d)?((?P<hours>\d+?)h)?((?P<minutes>\d+?)m)?((?P<seconds>\d+?)s)?')
         self.actions = {
-            m_common.COMMAND_LOAD: "experiment.node.{0}".format(m_common.COMMAND_LOAD),
-            m_common.COMMAND_INIT: "experiment.node.{0}".format(m_common.COMMAND_INIT),
-            m_common.COMMAND_START: "experiment.node.{0}".format(m_common.COMMAND_START),
-            m_common.COMMAND_STOP: "experiment.node.{0}".format(m_common.COMMAND_STOP),
-            m_common.COMMAND_RESET: "experiment.node.{0}".format(m_common.COMMAND_RESET),
-            m_common.COMMAND_SEND: "experiment.node.{0}".format(m_common.COMMAND_SEND)
+            m_common.COMMAND_LOAD: "node.{0}".format(m_common.COMMAND_LOAD),
+            m_common.COMMAND_INIT: "node.{0}".format(m_common.COMMAND_INIT),
+            m_common.COMMAND_START: "node.{0}".format(m_common.COMMAND_START),
+            m_common.COMMAND_STOP: "node.{0}".format(m_common.COMMAND_STOP),
+            m_common.COMMAND_RESET: "node.{0}".format(m_common.COMMAND_RESET),
+            m_common.COMMAND_SEND: "node.{0}".format(m_common.COMMAND_SEND)
         }
         self.state = SCHEDULER_UNDEFINED
         self.alive = False
@@ -97,22 +97,23 @@ class Scheduler:
                         parameters[key] = 0
                 sleep_s = datetime.timedelta(**parameters)
             self.estimated_duration += sleep_s
+        self.remaining = self.estimated_duration
         self.state = SCHEDULER_READY
 
     def status(self):
         return {
             'state': SCHEDULER_STATES[self.state],
-            'duration': self._duration_status() if self.estimated_duration else DURATION_UNDEFINED,
-            'remaining': self._remaining_status() if self.last_time else REMAINING_UNDEFINED,
+            'duration': self.duration_status() if self.estimated_duration else DURATION_UNDEFINED,
+            'remaining': self.remaining_status() if self.last_time else REMAINING_UNDEFINED,
             'beginning': self._beginning_status() if self.beginning else BEGINNING_UNDEFINED,
-            'progress': self._progress_status() if self.last_time else PROGRESS_UNDEFINED,
+            'progress': self.progress_status() if self.last_time else PROGRESS_UNDEFINED,
             'end': self._end_status() if self.last_time else END_UNDEFINED,
             'schedule': self.schedule if self.schedule else SCHEDULE_UNDEFINED}
 
     def start(self, on_complete_callback):
         self.alive = True
+        self.state = SCHEDULER_RUNNING
         self.beginning = datetime.datetime.now()
-        self.remaining = self.estimated_duration
         self.last_time = self.beginning
 
         self.on_complete_callback = on_complete_callback
@@ -123,15 +124,16 @@ class Scheduler:
         if self.alive:
             self.alive = False
             self.thread.join()
+        self.state = SCHEDULER_HALTED
 
-    def _duration_status(self):
+    def duration_status(self):
         return self.estimated_duration.total_seconds()
 
-    def _remaining_status(self):
+    def remaining_status(self):
         zero_duration = datetime.timedelta(seconds=0)
         return str(self.remaining if self.remaining > zero_duration else zero_duration)
 
-    def _progress_status(self):
+    def progress_status(self):
         now = datetime.datetime.now()
         elapsed_since_beginning = now - self.beginning
         progress = elapsed_since_beginning / (elapsed_since_beginning + self.remaining)
@@ -167,10 +169,8 @@ class Scheduler:
                         self.stop()
                         break
                 if 'parameters' in event.keys():
-                    print('action: {0} parameters: {1}'.format(event['action'], event['parameters']))
                     dispatcher.send(self.actions[event['action']], sender=self, **event['parameters'])
                 else:
-                    print('action: {0}'.format(event['action']))
                     dispatcher.send(self.actions[event['action']], sender=self)
                 self.last_time = datetime.datetime.now()
             else:

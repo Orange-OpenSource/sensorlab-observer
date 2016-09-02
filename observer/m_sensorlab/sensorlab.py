@@ -18,6 +18,9 @@ from .frame_format import *
 
 FIRMWARE_PROPERTY_ID = 0x00
 STATE_PROPERTY_ID = 0x01
+LATITUDE_PROPERTY_ID = 0x02
+LONGITUDE_PROPERTY_ID = 0x03
+ALTITUDE_PROPERTY_ID = 0x04
 
 
 def sensorlab_header(node_id, event_id):
@@ -74,10 +77,10 @@ def node_add_header(properties_count):
         PropertyDeclarationPayload.
 
         The NodeAdd header structure is:
-            - propertiesCount   :   1-byte. Number of properties describing the node state.
+            - propertiesCount   :   1-byte. Number of properties describing the node node_state.
 
         Args:
-            properties_count (unsigned int): Number of properties describing the node state (up to 255)
+            properties_count (unsigned int): Number of properties describing the node node_state (up to 255)
 
         Returns:
             bytes: header content
@@ -95,10 +98,10 @@ def node_property_add_header(properties_count):
         PropertyDeclarationPayload.
 
         The NodePropertyAdd header structure is:
-            - propertiesCount   :   1-byte. Number of properties describing the node state.
+            - propertiesCount   :   1-byte. Number of properties describing the node node_state.
 
         Args:
-            properties_count (unsigned int): Number of properties describing the node state (up to 255)
+            properties_count (unsigned int): Number of properties describing the node node_state (up to 255)
 
         Returns:
             bytes: header content
@@ -117,7 +120,7 @@ def node_property_update_header(properties_count):
         PropertyUpdatePayload.
 
         Args:
-            properties_count (unsigned int): Number of properties describing the node state (up to 255)
+            properties_count (unsigned int): Number of properties describing the node node_state (up to 255)
 
         Returns:
             bytes: header content
@@ -143,7 +146,7 @@ def entity_add_header(entity_id, entity_name_length, properties_count, entity_na
             Args:
                 entity_id (unsigned char): ID of the new entity
                 entity_name_length (unsigned int): Entity's name length
-                properties_count (unsigned int): Number of properties describing the entity state (up to 255)
+                properties_count (unsigned int): Number of properties describing the entity node_state (up to 255)
                 entity_name (string): Name of the entity, ASCII encoded.
 
             Returns:
@@ -164,11 +167,11 @@ def entity_property_add_header(entity_id, properties_count):
 
         The EntityPropertyAdd header structure is:
             - entity_id         :  1-byte. ID of the entity.
-            - properties_count  :  1-byte. Number of properties describing the entity state.
+            - properties_count  :  1-byte. Number of properties describing the entity node_state.
 
         Args:
             entity_id (unsigned char): entity ID.
-            properties_count (unsigned int): Number of properties describing the entity state (up to 255)
+            properties_count (unsigned int): Number of properties describing the entity node_state (up to 255)
 
         Returns:
             bytes: header content
@@ -187,7 +190,7 @@ def entity_property_update_header(entity_id, properties_count):
 
     The EntityPropertyAdd header structure is:
         - entityID          :   1-byte. ID of the entity.
-        - propertiesCount   :   1-byte. Number of properties describing the entity state.
+        - propertiesCount   :   1-byte. Number of properties describing the entity node_state.
 
     Args:
         entity_id (unsigned char):

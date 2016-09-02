@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Sensorlab open node controller handler module.
+"""Sensorlab open node node_controller handler module.
 
 `author`	:	Quentin Lampin <quentin.lampin@orange.com>
 `license`	:	MPL
@@ -26,7 +26,7 @@ class Controller:
                 - load 	: 	{...}
                 - start :	{...}
                 - stop 	:  	{...}
-                - reset :	{...}
+                -reset :	{...}
             - configuration_files:
                 * id 	:	{...}
                   file 	:   {...}
@@ -45,7 +45,7 @@ class Controller:
             self.configuration_files = configuration['configuration_files']
         except AttributeError as missing_key:
             raise m_common.NodeControllerSetupException(
-                m_common.ERROR_CONFIGURATION_MISSING_ARGUMENT.format(missing_key, configuration))
+                m_common.ERROR_MISSING_ARGUMENT_IN_ARCHIVE.format(missing_key, configuration))
         self.state = CONTROLLER_READY
 
     def status(self):

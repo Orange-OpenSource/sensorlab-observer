@@ -25,7 +25,7 @@ The manifest file complies to the YAML specification.
 It must contain the following structure: 
 
     `configuration`(dict):
-            - id:  '{...}'
+            - node_id:  '{...}'
 
             - schedule:
                 * time:		{'origin', 'on-last-event-completion', duration}
@@ -36,13 +36,13 @@ It must contain the following structure:
                 * {...}
 
             - firmwares:
-                  * id:           {...}
+                  * node_id:           {...}
                     file:         {...}
                     brief:        {...}
 
         `base_directory`(string): {...}
 
-Controller commands may contain two types of placeholders : 
+Controller node_commands may contain two types of placeholders :
     - executable placeholders           : identified by a <!name> tag where name is the executable ID.
     - configuration file placeholders   : identified by a <#name> tag where name is the configuration file ID.
 
@@ -93,10 +93,13 @@ class Loader:
             archive_contents = archive.getnames()
             if any(elt not in archive_contents for elt in CONFIGURATION_MANDATORY_MEMBERS):
                 # invalid archive content, raise an exception
-                missing_elements = filter(lambda element: element not in archive_contents, CONFIGURATION_MANDATORY_MEMBERS)
+                missing_elements = [elt for elt in CONFIGURATION_MANDATORY_MEMBERS if elt not in archive_contents]
                 raise m_common.ExperimentSetupException(
-                    m_common.ERROR_CONFIGURATION_MISSING_ARGUMENT.format(
-                        'missing elements: '+str(missing_elements)+ ' of archive_contents: '+str(archive_contents)))
+                    m_common.ERROR_MISSING_ARGUMENT_IN_ARCHIVE.format(
+                        'missing elements: ' + str(missing_elements) +
+                        ' of archive_contents: ' + str(archive_contents)
+                    )
+                )
             # decompress the archive
             archive.extractall(self.temp_directory)
         # read the manifest
@@ -112,7 +115,10 @@ class Loader:
                     iterator = iterator[element]
                 except:
                     raise m_common.ExperimentSetupException(
-                        m_common.ERROR_CONFIGURATION_MISSING_ARGUMENT.format('element missing: '+element+' in: '+path))
+                        m_common.ERROR_MISSING_ARGUMENT_IN_ARCHIVE.format(
+                            'element missing: ' + element + ' in: ' + path
+                        )
+                    )
 
         # register firmwares
         firmwares_dir = os.path.join(self.temp_directory, FIRMWARES_SUBDIR)
@@ -120,9 +126,9 @@ class Loader:
             fid = firmware['id']
             ffile = firmware['file']
             self.firmwares[fid] = os.path.join(firmwares_dir, ffile)
-            # check if firmware file is present
+            # check if node_firmware file is present
             if not os.path.isfile(self.firmwares[fid]):
-                raise m_common.ExperimentSetupException(m_common.ERROR_CONFIGURATION_MISSING_ARGUMENT.format(ffile))
+                raise m_common.ExperimentSetupException(m_common.ERROR_MISSING_ARGUMENT_IN_ARCHIVE.format(ffile))
         # register the schedule
         self.schedule = self.manifest['schedule']
 

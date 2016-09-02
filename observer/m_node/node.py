@@ -4,75 +4,61 @@
 
 `author`	:	Quentin Lampin <quentin.lampin@orange.com>
 `license`	:	MPL
-`date`		:	2015/10/12
-Copyright 2015 Orange
+`date`		:	2016/06/16
+Copyright 2016 Orange
 
 # Overview
 -----------
-This module is an abstraction layer on top of the  "hardware" node under test.
+This module is a configurable module that controls the execution flow of the hardware device - or `node` - that is
+ connected to the observer. To interact with this module, one uses the observer's REST API, more specifically `node` and
+ `experiment` prefixed commands. `node` prefixed and `experiment` prefixed commands are mapped to  `node_` and
+ `experiment_` methods listed below:
+    - using `node_` prefixed commands, one interacts directly with the node, e.g. `node_load` flashes a firmware on the
+    hardware node as soon as the command is received. These commands are further detailed in the *Node API* section.
+    - using `experiment_` prefixed commands, one interacts with the hardware via a scenario - or `behavior` -.
+    This `behavior` defines a schedule of node commands (and parameters), i.e. commands and time intervals between
+    those commands. These commands are further detailed in the *Experiment API* section.
 
-# Node abstraction
----------------------
-The hardware node is modelled as a state machine, consisting of 5 states:
-`undefined`, `loading`, `ready`, `halted`, `running`.
+## Node API
+-------------------------------------------
+The node module API consists of a 7 node commands: `node_setup`, `node_init`, `node_load`, `node_start`, `node_stop`,
+`node_reset` and `node_send`.
 
-    - `undefined` : the hardware node is in an undefined/unknown state, possibly running or halted.
-    - `loading`	  : the hardware node is loading a firmware.
-    - `ready`	  : the hardware node is ready to start.
-    - `halted`	  : the hardware node is halted. Execution is pending.
-    - `running`   : the hardware node is running.
-
-
-# Node API
-----------------
-The node module API consists of 7 commands: `status`, `setup`, `init`, `load`, `start`, `stop`, `reset`.
-
-    - `status`(`none`) 						:	Returns information on the node under test.
-    - `setup`(`profile`)        			:	Setups the node controller and serial drivers.
-    - `init`(`none`)						:	initialize the node hardware.
-    - `load`(`firmware`)					:	load firmware in the node hardware.
-    - `start`								:	start the node hardware.
-    - `stop`								:	stop the node hardware.
-    - `reset`								:	reset the node hardware.
-    - `send`(`message`)						:	send a message to the node hardware via its serial interface.
+    - `node_setup`(`profile`)        			:	Setups the node module to interact with a specific hardware.
+    - `node_init`(`none`)						:	initialize the node hardware.
+    - `node_load`(`firmware`)					:	load firmware in the node hardware.
+    - `node_start`								:	start the node hardware.
+    - `node_stop`								:	stop the node hardware.
+    - `node_reset`								:	reset the node hardware.
+    - `node_send`(`message`)					:	send a message to the node hardware via its serial interface.
 
 '''
 
-# Signal API
-----------------
-The node module also provide a signal API that allows other modules, e.g. the experiment module, to control the node
-activity. There are 6 signals.
 
-    - `NODE_INIT`(`none`)					:	initialize the node hardware.
-    - `NODE_LOAD`(`firmware`)				:	load firmware in the node hardware.
-    - `NODE_START`(`none`)					:	start the node hardware.
-    - `NODE_STOP`(`none`)					:	stop the node hardware.
-    - `NODE_RESET`(`none`)					:	reset the node hardware.
-    - `NODE_SEND`(`message`)				:	send a message to the node hardware via its serial interface.
-
-
-## Node profile archive
------------------------
-The profile archive is of type **tar.gz** and contains the following directories and files:
+### Setup of the node module
+---------------------------
+This module, more specifically two of its sub-modules: `controller`and `serial`, can be configured to handle
+a variety of node hardware. The configuration is provided  in the form of a `profile` archive, of type **tar.gz**, which
+must contain the following directories and files:
 
     - `controller/`: configuration files and executables used by the node controller.
 
-        - `executables/`: executables used in control commands.
+        - `executables/`: executables used in control node_commands.
 
         - `configuration_files/`: executables configuration files.
 
-    - `serial/`: contains the python module that reports frames sent on the serial interface.
+    - `serial/`: contains the python module that reports frames sent on the node_serial interface.
 
     - `manifest.yml`: controller command lines and serial configuration file.
 
-### Manifest.yml
+#### Manifest.yml
 -----------------
 The manifest file complies to the YAML specification.
 It must contain the following structure: 
 
     - `controller`:
         - `commands`:
-            - `load` 		:	load a firmware into the node
+            - `load` 		:	load a node_firmware into the node
             - `start`	 	: 	start the node
             - `stop` 		:	stop the node
             - `reset`     	:	reset the node
@@ -90,210 +76,618 @@ It must contain the following structure:
             - ...
 
     - `serial`:
-        - `port` 		:    the serial port
-        - `baudrate`	:    serial interface baudrate
+        - `port` 		:    the node_serial port
+        - `baudrate`	:    node_serial interface baudrate
         - `parity`	 	:    parity bits
-        - `stopbits` 	:    stop bits
+        - `stopbits` 	:    node_stop bits
         - `bytesize` 	:    byte word size
         - `rtscts`		:    RTS/CTS
         - `xonxoff`		:    XON/XOFF
         - `timeout`		:    timeout of the read action
-        - `module` 		:    name of the module that handles serial frames
+        - `module` 		:    name of the module that handles node_serial frames
 
-    - `node`:
-        - `id`			:	NodeID
-          `file`		:	image.png
-          `brief`		:	node image short description
+    - `hardware`:
+        - `id`			:	the hardware name, e.g. OpenMote
 
-Controller commands may contain two types of placeholders : 
+Controller node_commands may contain two types of placeholders :
     - executable placeholders			: identified by a <!name> tag where name is the executable ID.
     - configuration file placeholders	: identified by a <#name> tag where name is the configuration file ID.
 
-Placeholders are resolved when the manifest is parsed for the first time. 
+Placeholders are resolved when the manifest is parsed for the first time.
 
+## Experiment API
+------------------
+The experiment API provides the user with a way to submit an experiment script that will be executed
+by the observer:
+    - `experiment_setup`(`behavior_id`,`behavior`)      :	setup an experiment scenario.
+    - `experiment_start`(`none`)						:	start the experiment.
+    - `experiment_stop`(`none`)						    : 	stop the experiment.
+    - `experiment_reset`(`none`)						:	reset the experiment module.
 
+### Experiment setup
+--------------------
+The experiment module is configured via the `setup` command.
+This `setup` command is sent to the supervisor as a HTTP POST request containing two arguments:
+    - `experiment_id            : id of the experiment.
+    - `behavior`                : behavior archive.
 
-# I/Os
---------
-The `serial` driver is in charge of sending and receiving frames from/to the node serial interface. 
+### Experiment behavior archive
+-------------------------------------
+The behavior archive is of type **tar.gz** and contains the following directories and files:
+    - `firmwares/`: firmwares to load on the hardware node during the experiment.
+    - `manifest.yml`: defines the experiment ID, its schedule and I/Os.
 
-The node module proxies the I/Os and and advertise frames from the hardware node via signals:
-    - `m_common.IO_RAW_FROM_NODE` 		: raw data from node
-    - `m_common.IO_OBSERVER_FROM_NODE` 	: observer message from node
-
-the node module also register as an handler to `m_common.IO_RAW_TO_NODE` signals. Those signals are sent alongside
-with a message that is sent to the hardware node via the `serial` module.
+#### Manifest.yml
+-----------------
+The manifest file complies to the YAML specification.
+It must contain the following structure:
+    - `firmwares`:
+        - `id`	 		:	configuration file ID
+          `file` 		:	configuration file
+          `brief`		: 	configuration file short description
+        ...
+    - `schedule`:
+        - time:             { `origin`, `on-last-event-completion`, duration }
+          action:           { `load`, `start`, `stop` }
+          parameters:
+            parameter:        value
+        ...
 
 
 """
-from .. import m_common
-from . import m_setup
-from . import m_controller
-from . import m_serial
+from pydispatch import dispatcher
 
-import argparse
-import platform
-import random
+from .. import m_common
+from .. import m_sensorlab
+
+from . import m_node_setup
+from . import m_node_controller
+from . import m_node_serial
+
+from . import m_experiment_setup
+from . import m_experiment_scheduler
+
+import time
+import struct
 import bottle
 import tempfile
 import os
-from pydispatch import dispatcher
+import json
 
 # node states
 NODE_UNDEFINED = 0
 NODE_LOADING = 1
-NODE_CONFIGURED = 2
-NODE_READY = 3
-NODE_HALTED = 4
-NODE_RUNNING = 5
-NODE_STATES = ('undefined', 'loading', 'configured', 'ready', 'halted', 'running')
+NODE_READY = 2
+NODE_HALTED = 3
+NODE_RUNNING = 4
+NODE_STATES = ('undefined', 'loading', 'ready', 'halted', 'running')
 
-# commands
-GET_COMMANDS = [m_common.COMMAND_STATUS,
-                m_common.COMMAND_INIT,
-                m_common.COMMAND_START,
-                m_common.COMMAND_STOP,
-                m_common.COMMAND_RESET]
+# experiment states
+EXPERIMENT_UNDEFINED = 0
+EXPERIMENT_LOADING = 1
+EXPERIMENT_READY = 2
+EXPERIMENT_HALTED = 3
+EXPERIMENT_RUNNING = 4
+EXPERIMENT_STATES = ('undefined', 'loading', 'ready', 'halted', 'running')
 
-POST_COMMANDS = [m_common.COMMAND_SETUP,
-                 m_common.COMMAND_LOAD]
+# node commands
+NODE_GET_COMMANDS = [m_common.COMMAND_STATUS,
+                     m_common.COMMAND_INIT,
+                     m_common.COMMAND_START,
+                     m_common.COMMAND_STOP,
+                     m_common.COMMAND_RESET]
 
-# POST request arguments
+NODE_POST_COMMANDS = [m_common.COMMAND_SETUP,
+                      m_common.COMMAND_LOAD]
+
+# experiment commands
+EXPERIMENT_GET_COMMANDS = [m_common.COMMAND_STATUS,
+                           m_common.COMMAND_START,
+                           m_common.COMMAND_STOP,
+                           m_common.COMMAND_RESET]
+
+EXPERIMENT_POST_COMMANDS = [m_common.COMMAND_SETUP]
+
+# node POST request arguments
 PROFILE_FILE = 'profile'
 FIRMWARE_FILE = 'firmware'
 FIRMWARE_NAME = 'firmware_id'
 
-# POST required arguments
-REQUIRED_ARGUMENTS = {
+# node POST required arguments
+NODE_REQUIRED_ARGUMENTS = {
     m_common.COMMAND_SETUP: {'files': [PROFILE_FILE], 'forms': []},
     m_common.COMMAND_LOAD: {'files': [FIRMWARE_FILE], 'forms': [FIRMWARE_NAME]},
 }
 
+# experiment POST request arguments
+BEHAVIOR_FILE = 'behavior'
+EXPERIMENT_ID = 'experiment_id'
+
+# experiment POST required arguments
+EXPERIMENT_REQUIRED_ARGUMENTS = {
+    m_common.COMMAND_SETUP: {'files': [BEHAVIOR_FILE], 'forms': [EXPERIMENT_ID]},
+}
+
 # default values
+HARDWARE_UNDEFINED = 'undefined'
 CONTROLLER_UNDEFINED = 'undefined'
 SERIAL_UNDEFINED = 'undefined'
 FIRMWARE_UNDEFINED = 'undefined'
+
+OUTPUT_BINARY = 'binary'
+OUTPUT_JSON = 'json'
+OUTPUT_BOTH = 'both'
 
 
 class Node:
     def __init__(self, node_id):
         # initialize instances attributes
-        self.id = node_id
-        self.state = NODE_UNDEFINED
-        self.firmware = None
-        self.controller = None
-        self.serial = None
-        self.loader = None
-        # link commands to instance methods
-        self.commands = {
+        self.node_id = node_id
+        self.node_hardware = None
+        self.node_state = NODE_UNDEFINED
+        self.node_firmware = None
+        self.node_controller = None
+        self.node_serial = None
+        self.node_loader = None
+
+        self.latitude = None
+        self.longitude = None
+        self.altitude = None
+
+        self.experiment_id = None
+        self.experiment_state = EXPERIMENT_UNDEFINED
+        self.experiment_firmwares = None
+        self.experiment_scheduler = m_experiment_scheduler.Scheduler()
+        self.experiment_loader = None
+
+        self.output = None
+        self.decoder = None
+
+        self.node_commands = {
             m_common.COMMAND_STATUS: self.status,
-            m_common.COMMAND_SETUP: self.setup,
-            m_common.COMMAND_INIT: self.init,
-            m_common.COMMAND_LOAD: self.load,
-            m_common.COMMAND_START: self.start,
-            m_common.COMMAND_STOP: self.stop,
-            m_common.COMMAND_RESET: self.reset,
-            m_common.COMMAND_SEND: self.send
+            m_common.COMMAND_SETUP: self.node_setup,
+            m_common.COMMAND_INIT: self.node_init,
+            m_common.COMMAND_LOAD: self.node_load,
+            m_common.COMMAND_START: self.node_start,
+            m_common.COMMAND_STOP: self.node_stop,
+            m_common.COMMAND_RESET: self.node_reset,
+            m_common.COMMAND_SEND: self.node_send
         }
-        # connect signals to commands
-        for command, method in self.commands.items():
+
+        self.experiment_commands = {
+            m_common.COMMAND_STATUS: self.status,
+            m_common.COMMAND_SETUP: self.experiment_setup,
+            m_common.COMMAND_START: self.experiment_start,
+            m_common.COMMAND_STOP: self.experiment_stop,
+            m_common.COMMAND_RESET: self.experiment_reset,
+        }
+
+        for command, method in self.node_commands.items():
             dispatcher.connect(method, "node.{0}".format(command))
 
+        dispatcher.connect(self._location_update, m_common.LOCATION_UPDATE)
+
     def status(self):
-        return {'id': self.id,
-                'state': NODE_STATES[self.state],
-                'controller': self.controller.status() if self.controller else CONTROLLER_UNDEFINED,
-                'serial': self.serial.status() if self.serial else SERIAL_UNDEFINED,
-                'firmware': self.firmware if self.firmware else FIRMWARE_UNDEFINED}
+        status = {
+            'id': self.node_id,
+            'hardware': {
+                'id': self.node_hardware if self.node_hardware else HARDWARE_UNDEFINED,
+                'state': NODE_STATES[self.node_state],
+                'firmware': self.node_firmware if self.node_firmware else FIRMWARE_UNDEFINED
+            }
+        }
+        if self.experiment_state is EXPERIMENT_READY:
+            status['experiment'] = {
+                'id': self.experiment_id,
+                'state': EXPERIMENT_STATES[self.experiment_state],
+                'duration': self.experiment_scheduler.duration_status(),
+            }
+        elif self.experiment_state in [EXPERIMENT_RUNNING, EXPERIMENT_HALTED]:
+            status['experiment'] = {
+                'id': self.experiment_id,
+                'state': EXPERIMENT_STATES[self.experiment_state],
+                'duration': self.experiment_scheduler.duration_status(),
+                'remaining': self.experiment_scheduler.remaining_status(),
+                'progress': self.experiment_scheduler.progress_status()
+            }
+        return status
 
-    def setup(self, profile):
-        # clean current state
-        if self.state == NODE_RUNNING:
-            self.stop()
-        if self.state == NODE_HALTED:
-            self.controller.reset()
+    def node_setup(self, profile, output=OUTPUT_BOTH):
+        self._io_debug('setup')
+        # clean current node_state
+        if self.node_state == NODE_RUNNING:
+            self.node_stop()
+        if self.node_state == NODE_HALTED:
+            self.node_controller.reset()
+        if self.node_loader:
+            self.node_loader.clean()
+            self.node_loader = None
+
+        # set output formats
+        self.output = output
+
         # reset node state
-        self.state = NODE_UNDEFINED
-        self.firmware = None
-        if self.loader:
-            self.loader.clean()
-        # load archive
-        self.loader = m_setup.Loader(profile)
-        node_configuration = self.loader.manifest
-        # load modules
-        self.controller = m_controller.Controller(node_configuration['controller'])
-        self.serial = m_serial.Serial(node_configuration['serial'], self._from_node_raw, self._from_node_observer)
-        self.state = NODE_CONFIGURED
+        self.node_state = NODE_UNDEFINED
+        self.node_firmware = None
+        # load node profile archive
+        self.node_loader = m_node_setup.Loader(profile)
+        node_profile = self.node_loader.manifest
+        # identify hardware
+        self.node_hardware = node_profile['hardware']
+        # load node modules
+        self.node_controller = m_node_controller.Controller(node_profile['controller'])
+        self.node_serial = m_node_serial.Serial(node_profile['serial'], self._io_data, self._io_log)
+        # halt and init hardware node
+        self.node_controller.stop()
+        self.node_controller.reset()
+        self.node_controller.init()
+        self.node_serial.init()
+        self.node_state = NODE_READY
+        self.decoder = m_sensorlab.Decoder()
 
-    def init(self):
-        # initialize state after setup is ready
-        self.controller.stop()
-        self.controller.init()
-        self.serial.init()
-        self.state = NODE_READY
+        data = struct.pack("<BB", m_sensorlab.EVENT_NODE_PROPERTY_ADD, 2)
+        data += m_sensorlab.property_declaration_payload(
+            m_sensorlab.STATE_PROPERTY_ID,
+            m_sensorlab.PREFIX_NONE,
+            m_sensorlab.UNIT_NONE,
+            m_sensorlab.TYPE_ASCII_ARRAY,
+            len('state'),
+            len('undefined'),
+            'state',
+            'undefined')
 
-    def start(self):
-        if self.state == NODE_CONFIGURED:
-            self.init()
-        if self.state in (NODE_READY, NODE_HALTED):
-            self.state = NODE_RUNNING
-            self.serial.start()
-            self.controller.start()
-            dispatcher.connect(self.send, m_common.IO_RAW_TO_NODE)
+        data += m_sensorlab.property_declaration_payload(m_sensorlab.FIRMWARE_PROPERTY_ID,
+                                                         m_sensorlab.PREFIX_NONE,
+                                                         m_sensorlab.UNIT_NONE,
+                                                         m_sensorlab.TYPE_ASCII_ARRAY,
+                                                         len('firmware'),
+                                                         len('undefined'),
+                                                         'firmware',
+                                                         'undefined')
+        # send it
+        timestamp = time.time()
+        self._io_log(timestamp, data)
 
-    def stop(self):
-        if self.state == NODE_RUNNING:
-            self.controller.stop()
-            self.serial.stop()
-            dispatcher.disconnect(self.send, m_common.IO_RAW_TO_NODE)
-        elif self.state == NODE_CONFIGURED:
-            self.init()
-        self.state = NODE_HALTED
+        # send it
+        timestamp = time.time()
+        self._io_log(timestamp, data)
 
-    def reset(self):
-        if self.state == NODE_RUNNING:
-            self.stop()
-        if self.controller:
-            self.controller.reset()
-        if self.serial:
-            self.serial.reset()
-        self.state = NODE_READY
+    def node_init(self):
+        self._io_debug('init')
+        self.node_controller.stop()
+        self.node_controller.init()
+        self.node_serial.init()
+        self.node_state = NODE_READY
+        self.decoder.reset()
 
-    def load(self, firmware, firmware_id):
-        if self.state == NODE_RUNNING:
-            self.stop()
-        if self.state == NODE_HALTED:
-            self.reset()
-        self.state = NODE_LOADING
+        data = struct.pack("<BB", m_sensorlab.EVENT_NODE_PROPERTY_UPDATE, 1)
+        data += m_sensorlab.property_reference_payload(
+            m_sensorlab.STATE_PROPERTY_ID,
+            m_sensorlab.TYPE_ASCII_ARRAY,
+            len('initialized'),
+            'initialized')
+        # send it
+        timestamp = time.time()
+        self._io_log(timestamp, data)
+
+        # send it
+        timestamp = time.time()
+        self._io_log(timestamp, data)
+
+    def node_start(self):
+        self._io_debug('start')
+        if self.node_state in (NODE_READY, NODE_HALTED):
+            self.node_state = NODE_RUNNING
+            self.node_serial.start()
+            self.node_controller.start()
+            dispatcher.connect(self.node_send, m_common.IO_RECV)
+
+        data = struct.pack("<BB", m_sensorlab.EVENT_NODE_PROPERTY_UPDATE, 1)
+        data += m_sensorlab.property_reference_payload(
+                    m_sensorlab.STATE_PROPERTY_ID,
+                    m_sensorlab.TYPE_ASCII_ARRAY,
+                    len('running'),
+                    'running')
+        # send it
+        timestamp = time.time()
+        self._io_log(timestamp, data)
+
+    def node_stop(self):
+        self._io_debug('stop')
+        if self.node_state == NODE_RUNNING:
+            self.node_controller.stop()
+            self.node_serial.stop()
+            dispatcher.disconnect(self.node_send, m_common.IO_RECV)
+        elif self.node_state == NODE_READY:
+            self.node_init()
+        self.node_state = NODE_HALTED
+
+        data = struct.pack("<BB", m_sensorlab.EVENT_NODE_PROPERTY_UPDATE, 1)
+        data += m_sensorlab.property_reference_payload(m_sensorlab.STATE_PROPERTY_ID,
+                                                       m_sensorlab.TYPE_ASCII_ARRAY,
+                                                       len('halted'),
+                                                       'halted')
+        # send it
+        timestamp = time.time()
+        self._io_log(timestamp, data)
+
+    def node_reset(self):
+        self._io_debug('reset')
+        if self.node_state == NODE_RUNNING:
+            self.node_stop()
+        if self.node_controller:
+            self.node_controller.reset()
+        if self.node_serial:
+            self.node_serial.reset()
+        self.node_state = NODE_READY
+
+        data = struct.pack("<BB", m_sensorlab.EVENT_NODE_PROPERTY_UPDATE, 1)
+        data += m_sensorlab.property_reference_payload(m_sensorlab.STATE_PROPERTY_ID,
+                                                       m_sensorlab.TYPE_ASCII_ARRAY,
+                                                       len('reset'),
+                                                       'reset')
+        # send it
+        timestamp = time.time()
+        self._io_log(timestamp, data)
+        self.decoder.reset()
+
+    def node_load(self, firmware_id, firmware=None):
+        self._io_debug('load {0}'.format(firmware_id))
+        if self.node_state == NODE_RUNNING:
+            self.node_stop()
+        if self.node_state == NODE_HALTED:
+            self.node_reset()
+        self.node_state = NODE_LOADING
         if isinstance(firmware, bottle.FileUpload):
             temp_directory = tempfile.mkdtemp()
             firmware_path = os.path.join(temp_directory + firmware.name)
             firmware.save(firmware_path)
             firmware = firmware_path
-        self.controller.load(firmware)
-        self.firmware = firmware_id
-        self.state = NODE_READY
+        else:
+            firmware = self.experiment_firmwares[firmware_id]
 
-    def send(self, message):
-        if self.state == NODE_RUNNING:
-            self.serial.send(message)
+        self.node_controller.load(firmware)
+        self.node_firmware = firmware_id
+        self.node_state = NODE_READY
+        self.decoder.reset()
+        data = struct.pack("<BB", m_sensorlab.EVENT_NODE_PROPERTY_UPDATE, 1)
+        data += m_sensorlab.property_reference_payload(m_sensorlab.FIRMWARE_PROPERTY_ID,
+                                                       m_sensorlab.TYPE_ASCII_ARRAY,
+                                                       len(self.node_firmware),
+                                                       self.node_firmware)
+        # send it
+        timestamp = time.time()
+        self._io_log(timestamp, data)
 
-    def _from_node_raw(self, timestamp, message):
-        if self.state == NODE_RUNNING:
-            dispatcher.send(signal=m_common.IO_RAW_FROM_NODE, sender=self, timestamp=timestamp, message=message)
+    def node_send(self, message):
+        self._io_debug('send {0}'.format(message))
+        if self.node_state == NODE_RUNNING:
+            self.node_serial.send(message)
 
-    def _from_node_observer(self, timestamp, message):
-        if self.state == NODE_RUNNING:
-            dispatcher.send(signal=m_common.IO_OBSERVER_FROM_NODE, sender=self, timestamp=timestamp, message=message)
+    def experiment_setup(self, experiment_id, behavior, output=OUTPUT_BOTH):
+        self._io_debug('setup {0}'.format(experiment_id))
+        self.experiment_id = experiment_id
+        self.experiment_loader = m_experiment_setup.Loader(behavior)
+        self.experiment_firmwares = self.experiment_loader.firmwares
+        self.experiment_scheduler.setup(self.experiment_loader.schedule)
+        # choose the output formats
+        self.output = output
+        # declare the experiment ready
+        self.experiment_state = EXPERIMENT_READY
 
-    def rest_get_command(self, command):
+    def experiment_start(self):
+        self._io_debug('start')
+        # declare the experiment running
+        self.experiment_state = EXPERIMENT_RUNNING
+        # advertise the addition of a new node to the experiment
+        data = struct.pack("<BB", m_sensorlab.EVENT_NODE_ADD, 5)
+        # including the node initial location
+        data += m_sensorlab.property_declaration_payload(m_sensorlab.LATITUDE_PROPERTY_ID,
+                                                         m_sensorlab.PREFIX_NONE,
+                                                         m_sensorlab.UNIT_NONE,
+                                                         m_sensorlab.TYPE_FLOAT,
+                                                         len('latitude'),
+                                                         4,
+                                                         'latitude',
+                                                         self.latitude if type(self.latitude) is float else -1)
+        data += m_sensorlab.property_declaration_payload(m_sensorlab.LONGITUDE_PROPERTY_ID,
+                                                         m_sensorlab.PREFIX_NONE,
+                                                         m_sensorlab.UNIT_NONE,
+                                                         m_sensorlab.TYPE_FLOAT,
+                                                         len('longitude'),
+                                                         4,
+                                                         'longitude',
+                                                         self.longitude if type(self.longitude) is float else -1)
+        data += m_sensorlab.property_declaration_payload(m_sensorlab.ALTITUDE_PROPERTY_ID,
+                                                         m_sensorlab.PREFIX_NONE,
+                                                         m_sensorlab.UNIT_NONE,
+                                                         m_sensorlab.TYPE_FLOAT,
+                                                         len('altitude'),
+                                                         4,
+                                                         'altitude',
+                                                         self.altitude if type(self.altitude) is float else -1)
+        # with a firmware property set to 'none'
+        data += m_sensorlab.property_declaration_payload(m_sensorlab.FIRMWARE_PROPERTY_ID,
+                                                         m_sensorlab.PREFIX_NONE,
+                                                         m_sensorlab.UNIT_NONE,
+                                                         m_sensorlab.TYPE_ASCII_ARRAY,
+                                                         len('firmware'),
+                                                         len('none'),
+                                                         'firmware',
+                                                         'none')
+        # and state property set to 'inactive'
+        data += m_sensorlab.property_declaration_payload(m_sensorlab.STATE_PROPERTY_ID,
+                                                         m_sensorlab.PREFIX_NONE,
+                                                         m_sensorlab.UNIT_NONE,
+                                                         m_sensorlab.TYPE_ASCII_ARRAY,
+                                                         len('state'),
+                                                         len('inactive'),
+                                                         'state',
+                                                         'inactive')
+
+        # send it
+        timestamp = time.time()
+        self._io_log(timestamp, data)
+
+        # start the scheduler
+        self.experiment_scheduler.start(self._experiment_end)
+
+    def experiment_stop(self):
+        self._io_debug('stop')
+
+        # stop the node
+        self.node_stop()
+        self.node_reset()
+        # stop the scheduler
+        self.experiment_scheduler.stop()
+        timestamp = time.time()
+
+        # advertise to the new node state
+        data = struct.pack("<BB", m_sensorlab.EVENT_NODE_PROPERTY_UPDATE, 2)
+        data += m_sensorlab.property_reference_payload(m_sensorlab.FIRMWARE_PROPERTY_ID,
+                                                       m_sensorlab.TYPE_ASCII_ARRAY,
+                                                       len('none'),
+                                                       'none')
+        data += m_sensorlab.property_reference_payload(m_sensorlab.STATE_PROPERTY_ID,
+                                                       m_sensorlab.TYPE_ASCII_ARRAY,
+                                                       len('terminated'),
+                                                       'terminated')
+
+        # send it
+        self._io_log(timestamp, data)
+
+        # declare the experiment halted
+        self.experiment_state = EXPERIMENT_HALTED
+
+    def experiment_reset(self):
+        self._io_debug('reset')
+        # clean the loader files
+        if self.experiment_loader:
+            self.experiment_loader.clean()
+            self.experiment_loader = None
+
+        # reset the experiment state
+        self.experiment_id = None
+        self.experiment_state = EXPERIMENT_UNDEFINED
+        self.experiment_firmwares = None
+        self.experiment_scheduler = m_experiment_scheduler.Scheduler()
+
+    def _experiment_end(self):
+        self._io_debug('end')
+        print('experiment end')
+        self.experiment_stop()
+        self.experiment_reset()
+
+    def _io_data(self, _, message):
+        if self.experiment_state == EXPERIMENT_RUNNING:
+            topic = m_common.IO_TOPIC_EXPERIMENT_OUTPUT_DATA.format(
+                experiment_id=self.experiment_id,
+                node_id=self.node_id
+            )
+        else:
+            topic = m_common.IO_TOPIC_NODE_OUTPUT_DATA.format(
+                node_id=self.node_id
+            )
+
+        dispatcher.send(
+            signal=m_common.IO_SEND,
+            sender=self,
+            topic=topic,
+            message=message
+        )
+
+    def _io_log(self, timestamp, message):
+        # build message with PCAP record, etc.
+        time_s = int(timestamp)
+        time_us = int(round((timestamp - time_s) * 10 ** 6))
+        # build the packet record
+        # prepend node ID to the message
+        data = struct.pack("<I", self.node_id) + message
+
+        if self.output is not OUTPUT_JSON:
+            # build the PCAP record
+            record = m_sensorlab.pcap_record(time_s, time_us, data)
+            if self.experiment_state == EXPERIMENT_RUNNING:
+                topic = m_common.IO_TOPIC_EXPERIMENT_OUTPUT_BINARY.format(experiment_id=self.experiment_id)
+            else:
+                topic = m_common.IO_TOPIC_NODE_OUTPUT_BINARY
+
+            dispatcher.send(
+                signal=m_common.IO_SEND,
+                sender=self,
+                topic=topic,
+                message=bytearray(record)
+            )
+
+        if self.output is not OUTPUT_BINARY:
+            if self.experiment_state == EXPERIMENT_RUNNING:
+                topic = m_common.IO_TOPIC_EXPERIMENT_OUTPUT_JSON.format(experiment_id=self.experiment_id)
+            else:
+                topic = m_common.IO_TOPIC_NODE_OUTPUT_JSON
+            try:
+                json_object = self.decoder.decode(timestamp, bytearray(data))
+
+                dispatcher.send(
+                    signal=m_common.IO_SEND,
+                    sender=self,
+                    topic=topic,
+                    message=json.dumps(json_object)
+                )
+            except m_common.DecoderException as e:
+                dispatcher.send(
+                    signal=m_common.IO_SEND,
+                    sender=self,
+                    topic=topic,
+                    message=json.dumps({'nodeId': self.node_id, 'error': e.message})
+                )
+
+    def _io_debug(self, message):
+        if self.experiment_state is EXPERIMENT_UNDEFINED:
+            dispatcher.send(
+                signal=m_common.IO_SEND,
+                sender=self,
+                topic=m_common.IO_TOPIC_PLATFORM_LOG.format(observer_id=self.node_id, module='node'),
+                message=str(message)
+            )
+        else:
+            dispatcher.send(
+                signal=m_common.IO_SEND,
+                sender=self,
+                topic=m_common.IO_TOPIC_PLATFORM_LOG.format(observer_id=self.node_id, module='experiment'),
+                message=str(message)
+            )
+
+    def _location_update(self, latitude, longitude, altitude):
+        self.latitude = latitude
+        self.longitude = longitude
+        self.altitude = altitude
+        self._io_debug('location update: ({0},{1})[{2}]'.format(latitude, longitude, altitude))
+        if self.experiment_state == EXPERIMENT_RUNNING\
+                and self.experiment_scheduler.state == m_experiment_scheduler.SCHEDULER_RUNNING:
+            data = struct.pack("<BB", m_sensorlab.EVENT_NODE_PROPERTY_UPDATE, 3)
+            data += m_sensorlab.property_reference_payload(m_sensorlab.LATITUDE_PROPERTY_ID,
+                                                           m_sensorlab.TYPE_FLOAT,
+                                                           4,
+                                                           self.latitude)
+            data += m_sensorlab.property_reference_payload(m_sensorlab.LONGITUDE_PROPERTY_ID,
+                                                           m_sensorlab.TYPE_FLOAT,
+                                                           4,
+                                                           self.longitude)
+            data += m_sensorlab.property_reference_payload(m_sensorlab.ALTITUDE_PROPERTY_ID,
+                                                           m_sensorlab.TYPE_FLOAT,
+                                                           4,
+                                                           self.altitude)
+            timestamp = time.time()
+            self._io_log(timestamp, data)
+
+    def rest_get_node_command(self, command):
         # check that command exists
-        if command not in GET_COMMANDS:
+        if command not in NODE_GET_COMMANDS:
             bottle.response.status = m_common.REST_REQUEST_ERROR
             return m_common.ERROR_COMMAND_UNKNOWN.format(command + '(GET)')
         # issue the command and return
         try:
-            self.commands[command]()
+            self.node_commands[command]()
             bottle.response.status = m_common.REST_REQUEST_FULFILLED
             # return the node status
             return self.status()
@@ -301,26 +695,25 @@ class Node:
             bottle.response.status = m_common.REST_REQUEST_ERROR
             return m_common.REST_INTERNAL_ERROR.format(e.message)
 
-    def rest_post_command(self, command):
+    def rest_post_node_command(self, command):
         # check that command exists
-        if command not in POST_COMMANDS:
+        if command not in NODE_POST_COMMANDS:
             bottle.response.status = m_common.REST_REQUEST_ERROR
             return m_common.ERROR_COMMAND_UNKNOWN.format(command + '(POST)')
-        # load arguments
+        # node_load arguments
         arguments = {}
-        for required_file_argument in REQUIRED_ARGUMENTS[command]['files']:
+        for required_file_argument in NODE_REQUIRED_ARGUMENTS[command]['files']:
             arguments[required_file_argument] = bottle.request.files.get(required_file_argument)
-        for required_form_argument in REQUIRED_ARGUMENTS[command]['forms']:
+        for required_form_argument in NODE_REQUIRED_ARGUMENTS[command]['forms']:
             arguments[required_form_argument] = bottle.request.forms.get(required_form_argument)
         # check that all arguments have been filled
         if any(value is None for argument, value in arguments.items()):
             missing_arguments = [argument for argument in arguments.keys() if arguments[argument] is None]
             bottle.response.status = m_common.REST_REQUEST_ERROR
-            return m_common.ERROR_CONFIGURATION_MISSING_ARGUMENT.format(missing_arguments)
+            return m_common.ERROR_MISSING_ARGUMENT_IN_REQUEST.format(missing_arguments)
         # issue the command
         try:
-            print('command: '+command)
-            self.commands[command](**arguments)
+            self.node_commands[command](**arguments)
             bottle.response.status = m_common.REST_REQUEST_FULFILLED
             # return the node status
             return self.status()
@@ -328,24 +721,43 @@ class Node:
             bottle.response.status = m_common.REST_REQUEST_ERROR
             return m_common.ERROR_CONFIGURATION_FAIL.format(e.message)
 
+    def rest_get_experiment_command(self, command):
+        # check that command exists
+        if command not in EXPERIMENT_GET_COMMANDS:
+            bottle.response.status = m_common.REST_REQUEST_ERROR
+            return m_common.ERROR_COMMAND_UNKNOWN.format(command + '(GET)')
+        # issue the command and return
+        try:
+            self.experiment_commands[command]()
+            bottle.response.status = m_common.REST_REQUEST_FULFILLED
+            # return the node status
+            return self.status()
+        except m_common.NodeException as e:
+            bottle.response.status = m_common.REST_REQUEST_ERROR
+            return m_common.REST_INTERNAL_ERROR.format(e.message)
 
-def main():
-    # initialize the arguments parser
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-cp', '--command_port', type=int, default=5555, help='command port')
-    parser.add_argument('-d', '--debug', type=bool, default=True, help='debug output')
-    arguments = parser.parse_args()
-    # initialize the node module
-    hostname = platform.node()
-    node_id = hostname.lstrip('observer-') if 'observer-' in hostname else str(random.randint(0, 255))
-    node = Node(node_id)
-
-    @bottle.route(['/', '/<command>'])
-    def node_get_command(command=m_common.COMMAND_STATUS):
-        return node.rest_get_command(command)
-
-    @bottle.route(['/', '/<command>'], method='POST')
-    def node_post_command(command=m_common.COMMAND_STATUS):
-        return node.rest_post_command(command)
-
-    bottle.run(host='0.0.0.0', port=arguments.command_port, debug=arguments.debug)
+    def rest_post_experiment_command(self, command):
+        # check that command exists
+        if command not in EXPERIMENT_POST_COMMANDS:
+            bottle.response.status = m_common.REST_REQUEST_ERROR
+            return m_common.ERROR_COMMAND_UNKNOWN.format(command + '(POST)')
+        # load arguments
+        arguments = {}
+        for required_file_argument in EXPERIMENT_REQUIRED_ARGUMENTS[command]['files']:
+            arguments[required_file_argument] = bottle.request.files.get(required_file_argument)
+        for required_form_argument in EXPERIMENT_REQUIRED_ARGUMENTS[command]['forms']:
+            arguments[required_form_argument] = bottle.request.forms.get(required_form_argument)
+        # check that all arguments have been filled
+        if any(value is None for argument, value in arguments.items()):
+            missing_arguments = [argument for argument in arguments.keys() if arguments[argument] is None]
+            bottle.response.status = m_common.REST_REQUEST_ERROR
+            return m_common.ERROR_MISSING_ARGUMENT_IN_REQUEST.format(missing_arguments)
+        # issue the command
+        try:
+            self.experiment_commands[command](**arguments)
+            bottle.response.status = m_common.REST_REQUEST_FULFILLED
+            # return the node status
+            return self.status()
+        except m_common.NodeException as e:
+            bottle.response.status = m_common.REST_REQUEST_ERROR
+            return m_common.ERROR_CONFIGURATION_FAIL.format(e.message)

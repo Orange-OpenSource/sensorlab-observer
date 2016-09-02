@@ -8,7 +8,7 @@
 Copyright 2015 Orange
 """
 
-# commands
+# node_commands
 COMMAND_STATUS = 'status'
 COMMAND_SETUP = 'setup'
 COMMAND_LOAD = 'load'
@@ -17,21 +17,36 @@ COMMAND_START = 'start'
 COMMAND_STOP = 'stop'
 COMMAND_RESET = 'reset'
 COMMAND_SEND = 'send'
-COMMAND_ICON = 'icon'
 
-# REST commands return codes
+# REST node_commands return codes
 REST_REQUEST_FULFILLED = 200
 REST_REQUEST_ERROR = 400
 REST_REQUEST_FORBIDDEN = 403
 REST_INTERNAL_ERROR = 500
 
+# serial signals
+SERIAL_SEND = 'serial_send'
+SERIAL_RECV = 'serial_recv'
+
 # I/O signals
-IO_RAW_FROM_NODE = 'raw_from_node'
-IO_RAW_FROM_EXPERIMENT = 'raw_from_experiment'
-IO_RAW_FROM_PLATFORM = 'raw_from_platform'
-IO_RAW_TO_NODE = 'raw_to_node'
-IO_OBSERVER_FROM_NODE = 'observer_from_node'
-IO_OBSERVER_FROM_EXPERIMENT = 'observer_from_experiment'
+IO_SEND = 'io_send'
+IO_RECV = 'io_recv'
+
+# Location update signals
+LOCATION_UPDATE = 'location_update'
+
+# I/O MQTT topics
+IO_TOPIC_PLATFORM_LOG = 'sensorlab/log/observer-{observer_id}/{module}/'
+IO_TOPIC_NODE_INPUT = 'sensorlab/node-{observer_id}/input/'
+
+IO_TOPIC_NODE_OUTPUT_DATA = 'sensorlab/node-{node_id}/output/data/'
+IO_TOPIC_NODE_OUTPUT_BINARY = 'sensorlab/output/binary/'
+IO_TOPIC_NODE_OUTPUT_JSON = 'sensorlab/output/json/'
+
+
+IO_TOPIC_EXPERIMENT_OUTPUT_DATA = 'sensorlab/experiment/{experiment_id}/output/data/'
+IO_TOPIC_EXPERIMENT_OUTPUT_BINARY = 'sensorlab/experiment/{experiment_id}/output/binary/'
+IO_TOPIC_EXPERIMENT_OUTPUT_JSON = 'sensorlab/experiment/{experiment_id}/output/json/'
 
 
 # Sensorlab Base exception
@@ -47,41 +62,40 @@ class SensorlabException(Exception):
 class NodeException(SensorlabException):
     """Base exception class for the node module"""
 
+
 # Node Setup exception
-
-
 class NodeSetupException(NodeException):
-    """Base exception class for the node setup module"""
+    """Base exception class for the node node_setup module"""
 
 
 # Node Controller exception
 class NodeControllerException(NodeException):
-    """Base exception class for the node controller module"""
+    """Base exception class for the node node_controller module"""
 
 
 class NodeControllerSetupException(NodeControllerException):
-    """exception raised when the controller setup fails"""
+    """exception raised when the node_controller node_setup fails"""
 
 
 class NodeControllerCommandException(NodeControllerException):
-    """exception raised when a command issued to the controller fails"""
+    """exception raised when a command issued to the node_controller fails"""
 
 
 # Node Serial exception
 class NodeSerialException(NodeException):
-    """Base exception class for the node serial module"""
+    """Base exception class for the node node_serial module"""
 
 
 class NodeSerialSetupException(NodeControllerException):
-    """exception raised when the serial setup fails"""
+    """exception raised when the node_serial node_setup fails"""
 
 
 class NodeSerialCommandException(NodeControllerException):
-    """exception raised when a command issued to the serial fails"""
+    """exception raised when a command issued to the node_serial fails"""
 
 
 class NodeSerialRuntimeException(NodeControllerException):
-    """exception raised when a command issued to the serial fails"""
+    """exception raised when a command issued to the node_serial fails"""
 
 
 # Experiment Base exception
@@ -102,7 +116,7 @@ class IOException(SensorlabException):
 
 
 class IOSetupException(IOException):
-    """Arises when an error occurs during the IO module setup"""
+    """Arises when an error occurs during the IO module node_setup"""
 
 
 class LocationException(SensorlabException):
@@ -110,11 +124,15 @@ class LocationException(SensorlabException):
 
 
 class LocationSetupException(LocationException):
-    """Arises when an error occurs during the location module setup"""
+    """Arises when an error occurs during the location module node_setup"""
 
 
 class SupervisorException(SensorlabException):
     """raised when an error occurs in the supervisor module"""
+
+
+class DecoderException(SensorlabException):
+    """raised when an error occurs in the decoder module"""
 
 
 # generic error
@@ -127,6 +145,8 @@ ERROR_COMMAND_MISSING_ARGUMENT = 'error: command "{0}" argument(s) missing: "{1}
 ERROR_COMMAND_FORBIDDEN = 'error: command "{0}" forbidden, reason: {1}'
 
 # configuration error messages
-ERROR_CONFIGURATION_FAIL = 'error: configuration failed with message: {0}'
-ERROR_CONFIGURATION_MISSING_ARGUMENT = 'error: missing argument(s) in configuration: {0}'
-ERROR_CONFIGURATION_UNKNOWN_ITEM = 'error: unknown item(s): {0}'
+ERROR_CONFIGURATION_FAIL = 'error: setup failed with message: {0}'
+ERROR_MISSING_ARGUMENT_IN_ARCHIVE = 'missing argument(s) in archive: {0}'
+ERROR_MISSING_ARGUMENT_IN_MANIFEST = 'missing argument(s) in manifest: {0}'
+ERROR_MISSING_ARGUMENT_IN_REQUEST = 'missing argument(s) in request: {0}'
+ERROR_CONFIGURATION_UNKNOWN_ITEM = 'unknown item(s): {0}'

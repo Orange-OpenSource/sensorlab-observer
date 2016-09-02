@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Sensorlab open node serial handler module.
+"""Sensorlab open node node_serial handler module.
 
 `author`	:	Quentin Lampin <quentin.lampin@orange.com>
 `license`	:	MPL
