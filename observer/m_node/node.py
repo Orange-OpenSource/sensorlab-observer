@@ -147,12 +147,16 @@ from . import m_node_serial
 from . import m_experiment_setup
 from . import m_experiment_scheduler
 
+from datetime import datetime
+
 import time
+
 import struct
 import bottle
 import tempfile
 import os
 import json
+import shutil
 
 # node states
 NODE_UNDEFINED = 0
@@ -188,6 +192,11 @@ EXPERIMENT_GET_COMMANDS = [m_common.COMMAND_STATUS,
 
 EXPERIMENT_POST_COMMANDS = [m_common.COMMAND_SETUP]
 
+# persistent profile and experiment filenames
+LAST_PROFILE = 'last_profile.tar.gz'
+LAST_EXPERIMENT = 'last_experiment.tar.gz'
+
+
 # node POST request arguments
 PROFILE_FILE = 'profile'
 FIRMWARE_FILE = 'firmware'
@@ -220,7 +229,7 @@ OUTPUT_BOTH = 'both'
 
 
 class Node:
-    def __init__(self, node_id):
+    def __init__(self, node_id, debug=False):
         # initialize instances attributes
         self.node_id = node_id
         self.node_hardware = None
@@ -242,6 +251,8 @@ class Node:
 
         self.output = None
         self.decoder = None
+
+        self.debug = debug
 
         self.node_commands = {
             m_common.COMMAND_STATUS: self.status,
@@ -266,6 +277,24 @@ class Node:
             dispatcher.connect(method, "node.{0}".format(command))
 
         dispatcher.connect(self._location_update, m_common.LOCATION_UPDATE)
+
+        # setup node with last profile, if it exists
+        if os.path.exists(LAST_PROFILE):
+            try:
+                self.node_setup(LAST_PROFILE)
+            except (m_common.NodeControllerCommandException, m_common.NodeSetupException):
+                pass
+
+        # setup experiment with last experiment profile, if node setup went smoothly
+        if self.node_state == NODE_READY and os.path.exists(LAST_EXPERIMENT):
+            now = datetime.now()
+            try:
+                self.experiment_setup(
+                    'experiment-{0}{1}{2}-{3}'.format(now.year, now.month, now.day, now.hour),
+                    LAST_EXPERIMENT
+                )
+            except m_common.ExperimentSetupException:
+                pass
 
     def status(self):
         status = {
@@ -312,45 +341,56 @@ class Node:
         # load node profile archive
         self.node_loader = m_node_setup.Loader(profile)
         node_profile = self.node_loader.manifest
+        # save profile for next bootstrap
+        if type(profile) is bottle.FileUpload:
+            if os.path.exists(LAST_PROFILE):
+                os.remove(LAST_PROFILE)
+            profile.save(LAST_PROFILE)
         # identify hardware
         self.node_hardware = node_profile['hardware']
         # load node modules
         self.node_controller = m_node_controller.Controller(node_profile['controller'])
         self.node_serial = m_node_serial.Serial(node_profile['serial'], self._io_data, self._io_log)
-        # halt and init hardware node
-        self.node_controller.stop()
-        self.node_controller.reset()
-        self.node_controller.init()
-        self.node_serial.init()
-        self.node_state = NODE_READY
-        self.decoder = m_sensorlab.Decoder()
+        # attempt to halt and init hardware node
+        try:
+            self.node_controller.stop()
+            self.node_controller.reset()
+            self.node_controller.init()
+            self.node_serial.init()
+            self.node_state = NODE_READY
+            self.decoder = m_sensorlab.Decoder()
 
-        data = struct.pack("<BB", m_sensorlab.EVENT_NODE_PROPERTY_ADD, 2)
-        data += m_sensorlab.property_declaration_payload(
-            m_sensorlab.STATE_PROPERTY_ID,
-            m_sensorlab.PREFIX_NONE,
-            m_sensorlab.UNIT_NONE,
-            m_sensorlab.TYPE_ASCII_ARRAY,
-            len('state'),
-            len('undefined'),
-            'state',
-            'undefined')
+            data = struct.pack("<BB", m_sensorlab.EVENT_NODE_PROPERTY_ADD, 2)
+            data += m_sensorlab.property_declaration_payload(
+                m_sensorlab.STATE_PROPERTY_ID,
+                m_sensorlab.PREFIX_NONE,
+                m_sensorlab.UNIT_NONE,
+                m_sensorlab.TYPE_ASCII_ARRAY,
+                len('state'),
+                len('undefined'),
+                'state',
+                'undefined')
 
-        data += m_sensorlab.property_declaration_payload(m_sensorlab.FIRMWARE_PROPERTY_ID,
-                                                         m_sensorlab.PREFIX_NONE,
-                                                         m_sensorlab.UNIT_NONE,
-                                                         m_sensorlab.TYPE_ASCII_ARRAY,
-                                                         len('firmware'),
-                                                         len('undefined'),
-                                                         'firmware',
-                                                         'undefined')
-        # send it
-        timestamp = time.time()
-        self._io_log(timestamp, data)
+            data += m_sensorlab.property_declaration_payload(m_sensorlab.FIRMWARE_PROPERTY_ID,
+                                                             m_sensorlab.PREFIX_NONE,
+                                                             m_sensorlab.UNIT_NONE,
+                                                             m_sensorlab.TYPE_ASCII_ARRAY,
+                                                             len('firmware'),
+                                                             len('undefined'),
+                                                             'firmware',
+                                                             'undefined')
+            # send it
+            timestamp = time.time()
+            self._io_log(timestamp, data)
 
-        # send it
-        timestamp = time.time()
-        self._io_log(timestamp, data)
+        except m_common.NodeControllerCommandException:
+            # commands passed to the node failed, reset state
+            self.node_state = NODE_UNDEFINED
+            self.node_hardware = HARDWARE_UNDEFINED
+            self.node_firmware = None
+            self.node_controller = None
+            self.node_serial = None
+            raise m_common.NodeControllerCommandException('could not initialize node. Wrong profile?')
 
     def node_init(self):
         self._io_debug('init')
@@ -470,6 +510,11 @@ class Node:
         self.experiment_loader = m_experiment_setup.Loader(behavior)
         self.experiment_firmwares = self.experiment_loader.firmwares
         self.experiment_scheduler.setup(self.experiment_loader.schedule)
+        # save profile for next bootstrap
+        if type(behavior) is bottle.FileUpload:
+            if os.path.exists(LAST_EXPERIMENT):
+                os.remove(LAST_EXPERIMENT)
+            behavior.save(LAST_EXPERIMENT)
         # choose the output formats
         self.output = output
         # declare the experiment ready
@@ -574,7 +619,6 @@ class Node:
 
     def _experiment_end(self):
         self._io_debug('end')
-        print('experiment end')
         self.experiment_stop()
         self.experiment_reset()
 
@@ -642,26 +686,27 @@ class Node:
                 )
 
     def _io_debug(self, message):
-        if self.experiment_state is EXPERIMENT_UNDEFINED:
-            dispatcher.send(
-                signal=m_common.IO_SEND,
-                sender=self,
-                topic=m_common.IO_TOPIC_PLATFORM_LOG.format(observer_id=self.node_id, module='node'),
-                message=str(message)
-            )
-        else:
-            dispatcher.send(
-                signal=m_common.IO_SEND,
-                sender=self,
-                topic=m_common.IO_TOPIC_PLATFORM_LOG.format(observer_id=self.node_id, module='experiment'),
-                message=str(message)
-            )
+        if self.debug is True:
+            if self.experiment_state is EXPERIMENT_UNDEFINED:
+                dispatcher.send(
+                    signal=m_common.IO_SEND,
+                    sender=self,
+                    topic=m_common.IO_TOPIC_PLATFORM_LOG.format(observer_id=self.node_id, module='node'),
+                    message=str(message)
+                )
+            else:
+                dispatcher.send(
+                    signal=m_common.IO_SEND,
+                    sender=self,
+                    topic=m_common.IO_TOPIC_PLATFORM_LOG.format(observer_id=self.node_id, module='experiment'),
+                    message=str(message)
+                )
 
     def _location_update(self, latitude, longitude, altitude):
         self.latitude = latitude
         self.longitude = longitude
         self.altitude = altitude
-        self._io_debug('location update: ({0},{1})[{2}]'.format(latitude, longitude, altitude))
+        # self._io_debug('location update: ({0},{1})[{2}]'.format(latitude, longitude, altitude))
         if self.experiment_state == EXPERIMENT_RUNNING\
                 and self.experiment_scheduler.state == m_experiment_scheduler.SCHEDULER_RUNNING:
             data = struct.pack("<BB", m_sensorlab.EVENT_NODE_PROPERTY_UPDATE, 3)

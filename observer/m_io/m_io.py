@@ -8,12 +8,16 @@ Input/Output module.
 Copyright 2015 Orange
 
 """
+import os
 import bottle
 from pydispatch import dispatcher
 import socket
 import paho.mqtt.client as mqtt
+import yaml
 from .. import m_common
 
+# persistent configuration filename
+LAST_CONFIGURATION = 'last_configuration.yml'
 
 # Input/Output states
 IO_DISCONNECTED = 0
@@ -66,6 +70,19 @@ class IO:
             m_common.COMMAND_RESET: self.reset
         }
 
+        # setup IO with last configuration, if it exists
+        if os.path.exists(LAST_CONFIGURATION):
+            try:
+                with open(LAST_CONFIGURATION, 'r') as configuration_file:
+                    configuration = yaml.load(configuration_file.read())
+                    self.setup(
+                        configuration['broker_address'],
+                        configuration['broker_port'],
+                        configuration['keepalive_period']
+                    )
+            except (OSError, yaml.YAMLError, m_common.IOSetupException):
+                pass
+
     def status(self):
         return {'state': IO_STATES[self.state],
                 'address': self.broker_address if self.broker_address else BROKER_ADDRESS_UNDEFINED,
@@ -81,12 +98,30 @@ class IO:
             def on_connect(client, userdata, connection_result):
                 del userdata
                 if connection_result is 0:
-                    print('MQTT client connected')
                     self.state = IO_CONNECTED
                     client.subscribe(m_common.IO_TOPIC_NODE_INPUT.format(observer_id=self.node_id))
                     dispatcher.connect(self._send, signal=m_common.IO_SEND)
+                    # save configuration for next bootstrap
+                    if os.path.exists(LAST_CONFIGURATION):
+                        os.remove(LAST_CONFIGURATION)
+                    try:
+                        with open(LAST_CONFIGURATION, 'w') as configuration_file:
+                            configuration = yaml.dump({
+                                'broker_address': self.broker_address,
+                                'broker_port': self.broker_port,
+                                'keepalive_period': self.keepalive_period
+                            })
+                            configuration_file.write(configuration)
+                    except (OSError, yaml.YAMLError):
+                        raise m_common.IOSetupException(
+                            'error while saving the configuration: {0}:{1}({2})'.format(
+                                self.broker_address,
+                                self.broker_port,
+                                self.keepalive_period
+                            )
+                        )
                 else:
-                    print('MQTT connection error: {0}'.format(connection_result))
+                    pass
 
             def on_message(client, userdata, message):
                 del client, userdata
@@ -94,14 +129,14 @@ class IO:
 
             def on_disconnect(client, userdata, connection_result):
                 if connection_result != 0:
-                    print('MQTT client disconnected')
+                    pass
 
             def on_subscribe(client, userdata, mid, granted_qos):
                 del client, userdata, mid, granted_qos
-                print('MQTT client subscribed')
+                pass
 
             def on_log(client, userdata, level, buf):
-                print('MQTT log: {0}'.format(buf))
+                pass
 
             self.client.on_connect = on_connect
             self.client.on_message = on_message

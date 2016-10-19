@@ -232,16 +232,17 @@ REQUIRED_ARGUMENTS = {}
 
 
 class Observer:
-    def __init__(self):
+    def __init__(self, debug=False):
         self.state = OBSERVER_UNDEFINED
         self.io = None
         self.node = None
         self.location = None
+        self.debug = debug
 
         # initialize the node module
         hostname = platform.node()
         node_id = int(hostname.lstrip('observer-')) if 'observer-' in hostname else random.randint(0, 255)
-        self.node = m_node.Node(node_id)
+        self.node = m_node.Node(node_id, debug=self.debug)
 
         # initialize the I/O module
         self.io = m_io.IO(node_id)
@@ -305,7 +306,7 @@ def main():
     parser.add_argument('-d', '--debug', type=bool, default=True, help='debug output')
     arguments = parser.parse_args()
 
-    observer = Observer()
+    observer = Observer(debug=arguments.debug)
 
     @bottle.route(['/node', '/node/', '/node/<command>'])
     def node_get_command(command=m_common.COMMAND_STATUS):

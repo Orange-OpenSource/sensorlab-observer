@@ -87,7 +87,13 @@ class Loader:
         # create a temporary directory and extract the content of the archive
         self.temp_directory = tempfile.mkdtemp()
         archive_path = os.path.join(self.temp_directory, PROFILE_FILENAME)
-        behavior_archive.save(archive_path)
+        try:
+            # file upload
+            behavior_archive.save(archive_path)
+        except AttributeError:
+            # file on system
+            shutil.copy(behavior_archive, archive_path)
+
         with tarfile.open(archive_path) as archive:
             # validate the archive content
             archive_contents = archive.getnames()
