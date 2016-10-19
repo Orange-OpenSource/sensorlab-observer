@@ -9,6 +9,7 @@ Copyright 2015 Orange
 
 """
 import os
+import errno
 import bottle
 from pydispatch import dispatcher
 import socket
@@ -17,7 +18,7 @@ import yaml
 from .. import m_common
 
 # persistent configuration filename
-LAST_CONFIGURATION = 'last_configuration.yml'
+LAST_CONFIGURATION = os.path.join(m_common.PERSISTENCE_DIR, 'last_configuration.yml')
 
 # Input/Output states
 IO_DISCONNECTED = 0
@@ -102,8 +103,11 @@ class IO:
                     client.subscribe(m_common.IO_TOPIC_NODE_INPUT.format(observer_id=self.node_id))
                     dispatcher.connect(self._send, signal=m_common.IO_SEND)
                     # save configuration for next bootstrap
-                    if os.path.exists(LAST_CONFIGURATION):
-                        os.remove(LAST_CONFIGURATION)
+                    try:
+                        os.makedirs(os.path.dirname(LAST_CONFIGURATION))
+                    except OSError as exception:
+                        if exception.errno != errno.EEXIST:
+                            raise
                     try:
                         with open(LAST_CONFIGURATION, 'w') as configuration_file:
                             configuration = yaml.dump({

@@ -8,6 +8,9 @@
 Copyright 2015 Orange
 """
 
+# configuration persistence directory
+PERSISTENCE_DIR = '/var/cache/sensorlab/'
+
 # node_commands
 COMMAND_STATUS = 'status'
 COMMAND_SETUP = 'setup'

@@ -155,8 +155,8 @@ import struct
 import bottle
 import tempfile
 import os
+import errno
 import json
-import shutil
 
 # node states
 NODE_UNDEFINED = 0
@@ -193,8 +193,8 @@ EXPERIMENT_GET_COMMANDS = [m_common.COMMAND_STATUS,
 EXPERIMENT_POST_COMMANDS = [m_common.COMMAND_SETUP]
 
 # persistent profile and experiment filenames
-LAST_PROFILE = 'last_profile.tar.gz'
-LAST_EXPERIMENT = 'last_experiment.tar.gz'
+LAST_PROFILE = os.path.join(m_common.PERSISTENCE_DIR, 'last_profile.tar.gz')
+LAST_EXPERIMENT = os.path.join(m_common.PERSISTENCE_DIR, 'last_experiment.tar.gz')
 
 
 # node POST request arguments
@@ -343,9 +343,14 @@ class Node:
         node_profile = self.node_loader.manifest
         # save profile for next bootstrap
         if type(profile) is bottle.FileUpload:
-            if os.path.exists(LAST_PROFILE):
-                os.remove(LAST_PROFILE)
-            profile.save(LAST_PROFILE)
+            try:
+                os.makedirs(os.path.dirname(LAST_PROFILE))
+                print('created {0}'.format(os.path.dirname(LAST_PROFILE)))
+            except OSError as exception:
+                if exception.errno != errno.EEXIST:
+                    raise
+            print('saving {0}'.format(LAST_PROFILE))
+            profile.save(LAST_PROFILE, overwrite=True)
         # identify hardware
         self.node_hardware = node_profile['hardware']
         # load node modules
@@ -512,8 +517,13 @@ class Node:
         self.experiment_scheduler.setup(self.experiment_loader.schedule)
         # save profile for next bootstrap
         if type(behavior) is bottle.FileUpload:
-            if os.path.exists(LAST_EXPERIMENT):
-                os.remove(LAST_EXPERIMENT)
+            try:
+                os.makedirs(os.path.dirname(LAST_EXPERIMENT))
+                print('created {0}'.format(os.path.dirname(LAST_EXPERIMENT)))
+            except OSError as exception:
+                if exception.errno != errno.EEXIST:
+                    raise
+            print('saving {0}'.format(LAST_PROFILE))
             behavior.save(LAST_EXPERIMENT)
         # choose the output formats
         self.output = output
