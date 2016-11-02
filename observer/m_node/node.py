@@ -524,7 +524,7 @@ class Node:
                 if exception.errno != errno.EEXIST:
                     raise
             print('saving {0}'.format(LAST_PROFILE))
-            behavior.save(LAST_EXPERIMENT)
+            behavior.save(LAST_EXPERIMENT, overwrite=True)
         # choose the output formats
         self.output = output
         # declare the experiment ready
