@@ -130,7 +130,7 @@ def property_declaration_decode(buffer, json, offset, declarations):
 
     if PROPERTIES[data_type]['format']:
         data_decoded = block_decode(PROPERTIES[data_type]['format'], buffer, offset)
-        ((property_value), offset) = data_decoded
+        ((property_value,), offset) = data_decoded
 
     elif PROPERTIES[data_type]['title'] is 'asciiArray':
         property_value = buffer[offset:offset + property_value_length].decode('ascii')
@@ -169,7 +169,7 @@ def property_reference_decode(buffer, json, offset, declarations):
 
     if data_format:
         data_decoded = block_decode(data_format, buffer, offset)
-        ((property_value), offset,) = data_decoded
+        ((property_value,), offset,) = data_decoded
 
     elif data_type is 'asciiArray':
         property_value = buffer[offset:offset + property_value_length].decode('ascii')

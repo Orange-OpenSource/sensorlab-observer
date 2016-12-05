@@ -9,6 +9,3 @@ Copyright 2015 Orange
 
 """
 from .m_common import *
-
-api_major_version = 1   # bumped on incompatible changes
-api_minor_version = 0   # bumped on compatible changes

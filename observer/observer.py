@@ -157,6 +157,15 @@ The location module provides information on the node location. It exposes 2 meth
     - `status`(`none`)						: 	Returns information on the location module.
     - `setup`(`latitude`, `longitude`)		:	node_setup the location module to specified location.
 
+# System module
+---------------------
+The system module provides information on the system state. It exposes 1 method:
+
+    - `status`(`none`)                      :   returns general information on the observer system.
+    - `version`(`node`)                     :   returns the observer version number.
+    - `sync`(`none`)                        :   returns information on the synchronization state of the system.
+
+
 
 # Command API
 ----------------
@@ -201,6 +210,12 @@ The command API is organised as follows:
             - `status`(`none`)						:	returns information on the location module.
             - `setup`(`latitude`, `longitude`)		:	setup the location module to specified location.
 
+        - `system/`	:	redirects to `system/status`
+
+            - `status`(`none`)						:	returns information on the system module.
+            - `version`(`none`)                     :   returns the observer's version.
+            - `synchronization`(`none`)		        :	setup the location module to specified location.
+
 Commands requiring no arguments are of type `HTTP GET` while those who require arguments are of type `HTTP POST`.
 
 
@@ -209,12 +224,12 @@ from . import m_common
 from . import m_node
 from . import m_io
 from . import m_location
+from . import m_system
 
 import argparse
 import platform
 import random
 import bottle
-
 
 OBSERVER_UNDEFINED = 0
 OBSERVER_READY = 1
@@ -237,6 +252,7 @@ class Observer:
         self.io = None
         self.node = None
         self.location = None
+        self.system = None
         self.debug = debug
 
         # initialize the node module
@@ -249,6 +265,9 @@ class Observer:
 
         # initialize the GPS module
         self.location = m_location.GPS()
+
+        # initialize the m_system module
+        self.system = m_system.System()
 
         # link node_commands to instance methods
         self.commands = {
@@ -349,6 +368,10 @@ def main():
     @bottle.route(['/location', '/location/', '/location/<command>'], method='POST')
     def location_post_command(command=m_common.COMMAND_STATUS):
         return observer.location.rest_post_command(command)
+
+    @bottle.route(['/system', 'system/', '/system/<command>'], method='GET')
+    def system_get_command(command=m_common.COMMAND_STATUS):
+        return observer.system.rest_get_command(command)
 
     @bottle.route(['/', '/<command>'])
     def supervisor_get_command(command=m_common.COMMAND_STATUS):

@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 """
+System module.
+
 `author`	:	Quentin Lampin <quentin.lampin@orange.com>
 `license`	:	MPL
-`date`		:	2015/10/12
-Copyright 2015 Orange
+`date`		:	2016/12/2
+Copyright 2016 Orange
+
+
 """
-
-from . import node
-
-node.main()
+from .system import *

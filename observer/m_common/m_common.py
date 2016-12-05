@@ -8,10 +8,16 @@
 Copyright 2015 Orange
 """
 
+# version number
+VERSION = '1.3.1'
+
 # configuration persistence directory
 PERSISTENCE_DIR = '/var/cache/sensorlab/'
 
-# node_commands
+# chrony sync logs
+CHRONY_LOG_FILE = '/var/log/chrony/tracking.log'
+
+# commands
 COMMAND_STATUS = 'status'
 COMMAND_SETUP = 'setup'
 COMMAND_LOAD = 'load'
@@ -20,6 +26,9 @@ COMMAND_START = 'start'
 COMMAND_STOP = 'stop'
 COMMAND_RESET = 'reset'
 COMMAND_SEND = 'send'
+
+COMMAND_VERSION = 'version'
+COMMAND_SYNC = 'synchronization'
 
 # REST node_commands return codes
 REST_REQUEST_FULFILLED = 200
@@ -136,6 +145,10 @@ class SupervisorException(SensorlabException):
 
 class DecoderException(SensorlabException):
     """raised when an error occurs in the decoder module"""
+
+
+class SystemException(SensorlabException):
+    """raised when an error occurs in the system module"""
 
 
 # generic error

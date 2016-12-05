@@ -91,7 +91,7 @@ class Loader:
             # file upload
             behavior_archive.save(archive_path)
         except AttributeError:
-            # file on system
+            # file on m_system
             shutil.copy(behavior_archive, archive_path)
 
         with tarfile.open(archive_path) as archive:
@@ -108,6 +108,7 @@ class Loader:
                 )
             # decompress the archive
             archive.extractall(self.temp_directory)
+
         # read the manifest
         with open(os.path.join(self.temp_directory, EXPERIMENT_MANIFEST), 'r') as manifest_file:
             self.manifest = yaml.load(manifest_file.read())

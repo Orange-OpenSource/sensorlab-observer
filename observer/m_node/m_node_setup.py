@@ -133,7 +133,7 @@ class Loader:
             # file upload
             profile_archive.save(archive_path)
         except AttributeError:
-            # file on system
+            # file on m_system
             shutil.copy(profile_archive, archive_path)
         with tarfile.open(archive_path) as archive:
             # validate the archive content

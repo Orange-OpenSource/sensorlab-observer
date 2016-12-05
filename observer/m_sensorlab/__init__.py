@@ -15,6 +15,3 @@ from .sensorlab import *
 from .pcap import *
 from .frame_format import *
 from .decoder import Decoder
-
-api_major_version = 1   # bumped on incompatible changes
-api_minor_version = 0   # bumped on compatible changes

@@ -7,7 +7,4 @@ Observer package.
 Copyright 2015 Orange
 """
 
-api_major_version = 1   # bumped on incompatible changes
-api_minor_version = 1   # bumped on compatible changes
-
-__all__ = ['m_common', 'm_sensorlab', 'm_io', 'm_location', 'm_node']
+__all__ = ['m_common', 'm_sensorlab', 'm_io', 'm_location', 'm_node', 'm_system']

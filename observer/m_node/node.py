@@ -1,138 +1,11 @@
-#!/usr/bin/python
 # -*- coding: utf-8 -*-
-"""Sensorlab node module.
+"""
+Node/Experiment module.
 
 `author`	:	Quentin Lampin <quentin.lampin@orange.com>
 `license`	:	MPL
-`date`		:	2016/06/16
-Copyright 2016 Orange
-
-# Overview
------------
-This module is a configurable module that controls the execution flow of the hardware device - or `node` - that is
- connected to the observer. To interact with this module, one uses the observer's REST API, more specifically `node` and
- `experiment` prefixed commands. `node` prefixed and `experiment` prefixed commands are mapped to  `node_` and
- `experiment_` methods listed below:
-    - using `node_` prefixed commands, one interacts directly with the node, e.g. `node_load` flashes a firmware on the
-    hardware node as soon as the command is received. These commands are further detailed in the *Node API* section.
-    - using `experiment_` prefixed commands, one interacts with the hardware via a scenario - or `behavior` -.
-    This `behavior` defines a schedule of node commands (and parameters), i.e. commands and time intervals between
-    those commands. These commands are further detailed in the *Experiment API* section.
-
-## Node API
--------------------------------------------
-The node module API consists of a 7 node commands: `node_setup`, `node_init`, `node_load`, `node_start`, `node_stop`,
-`node_reset` and `node_send`.
-
-    - `node_setup`(`profile`)        			:	Setups the node module to interact with a specific hardware.
-    - `node_init`(`none`)						:	initialize the node hardware.
-    - `node_load`(`firmware`)					:	load firmware in the node hardware.
-    - `node_start`								:	start the node hardware.
-    - `node_stop`								:	stop the node hardware.
-    - `node_reset`								:	reset the node hardware.
-    - `node_send`(`message`)					:	send a message to the node hardware via its serial interface.
-
-'''
-
-
-### Setup of the node module
----------------------------
-This module, more specifically two of its sub-modules: `controller`and `serial`, can be configured to handle
-a variety of node hardware. The configuration is provided  in the form of a `profile` archive, of type **tar.gz**, which
-must contain the following directories and files:
-
-    - `controller/`: configuration files and executables used by the node controller.
-
-        - `executables/`: executables used in control node_commands.
-
-        - `configuration_files/`: executables configuration files.
-
-    - `serial/`: contains the python module that reports frames sent on the node_serial interface.
-
-    - `manifest.yml`: controller command lines and serial configuration file.
-
-#### Manifest.yml
------------------
-The manifest file complies to the YAML specification.
-It must contain the following structure: 
-
-    - `controller`:
-        - `commands`:
-            - `load` 		:	load a node_firmware into the node
-            - `start`	 	: 	start the node
-            - `stop` 		:	stop the node
-            - `reset`     	:	reset the node
-
-        - `executables`:
-            - `id` 			:	executable ID
-              `file` 		:	executable
-              `brief`		: 	executable short description
-            - ...
-
-        - `configuration_files`
-            - `id`	 		:	configuration file ID
-              `file` 		:	configuration file
-              `brief`		: 	configuration file short description
-            - ...
-
-    - `serial`:
-        - `port` 		:    the node_serial port
-        - `baudrate`	:    node_serial interface baudrate
-        - `parity`	 	:    parity bits
-        - `stopbits` 	:    node_stop bits
-        - `bytesize` 	:    byte word size
-        - `rtscts`		:    RTS/CTS
-        - `xonxoff`		:    XON/XOFF
-        - `timeout`		:    timeout of the read action
-        - `module` 		:    name of the module that handles node_serial frames
-
-    - `hardware`:
-        - `id`			:	the hardware name, e.g. OpenMote
-
-Controller node_commands may contain two types of placeholders :
-    - executable placeholders			: identified by a <!name> tag where name is the executable ID.
-    - configuration file placeholders	: identified by a <#name> tag where name is the configuration file ID.
-
-Placeholders are resolved when the manifest is parsed for the first time.
-
-## Experiment API
-------------------
-The experiment API provides the user with a way to submit an experiment script that will be executed
-by the observer:
-    - `experiment_setup`(`behavior_id`,`behavior`)      :	setup an experiment scenario.
-    - `experiment_start`(`none`)						:	start the experiment.
-    - `experiment_stop`(`none`)						    : 	stop the experiment.
-    - `experiment_reset`(`none`)						:	reset the experiment module.
-
-### Experiment setup
---------------------
-The experiment module is configured via the `setup` command.
-This `setup` command is sent to the supervisor as a HTTP POST request containing two arguments:
-    - `experiment_id            : id of the experiment.
-    - `behavior`                : behavior archive.
-
-### Experiment behavior archive
--------------------------------------
-The behavior archive is of type **tar.gz** and contains the following directories and files:
-    - `firmwares/`: firmwares to load on the hardware node during the experiment.
-    - `manifest.yml`: defines the experiment ID, its schedule and I/Os.
-
-#### Manifest.yml
------------------
-The manifest file complies to the YAML specification.
-It must contain the following structure:
-    - `firmwares`:
-        - `id`	 		:	configuration file ID
-          `file` 		:	configuration file
-          `brief`		: 	configuration file short description
-        ...
-    - `schedule`:
-        - time:             { `origin`, `on-last-event-completion`, duration }
-          action:           { `load`, `start`, `stop` }
-          parameters:
-            parameter:        value
-        ...
-
+`date`		:	2016/12/05
+Copyright 2015 Orange
 
 """
 from pydispatch import dispatcher
@@ -184,6 +57,32 @@ NODE_GET_COMMANDS = [m_common.COMMAND_STATUS,
 NODE_POST_COMMANDS = [m_common.COMMAND_SETUP,
                       m_common.COMMAND_LOAD]
 
+NODE_COMMAND_ALLOWED_STATES = {
+    m_common.COMMAND_STATUS: [
+        NODE_UNDEFINED,
+        NODE_LOADING,
+        NODE_READY,
+        NODE_HALTED,
+        NODE_RUNNING
+    ],
+    m_common.COMMAND_START: [
+        NODE_READY,
+        NODE_HALTED
+    ],
+    m_common.COMMAND_STOP: [
+        NODE_RUNNING
+    ],
+    m_common.COMMAND_RESET: [
+        NODE_READY,
+        NODE_HALTED
+    ],
+    m_common.COMMAND_SETUP: [
+        NODE_UNDEFINED,
+        NODE_HALTED,
+        NODE_READY
+    ]
+}
+
 # experiment commands
 EXPERIMENT_GET_COMMANDS = [m_common.COMMAND_STATUS,
                            m_common.COMMAND_START,
@@ -191,6 +90,31 @@ EXPERIMENT_GET_COMMANDS = [m_common.COMMAND_STATUS,
                            m_common.COMMAND_RESET]
 
 EXPERIMENT_POST_COMMANDS = [m_common.COMMAND_SETUP]
+
+EXPERIMENT_COMMAND_ALLOWED_STATES = {
+    m_common.COMMAND_STATUS: [
+        EXPERIMENT_UNDEFINED,
+        EXPERIMENT_LOADING,
+        EXPERIMENT_READY,
+        EXPERIMENT_HALTED,
+        EXPERIMENT_RUNNING
+    ],
+    m_common.COMMAND_START: [
+        EXPERIMENT_READY
+    ],
+    m_common.COMMAND_STOP: [
+        EXPERIMENT_RUNNING
+    ],
+    m_common.COMMAND_RESET: [
+        EXPERIMENT_READY,
+        EXPERIMENT_HALTED
+    ],
+    m_common.COMMAND_SETUP: [
+        EXPERIMENT_UNDEFINED,
+        EXPERIMENT_HALTED,
+        EXPERIMENT_READY
+    ]
+}
 
 # persistent profile and experiment filenames
 LAST_PROFILE = os.path.join(m_common.PERSISTENCE_DIR, 'last_profile.tar.gz')
@@ -290,7 +214,7 @@ class Node:
             now = datetime.now()
             try:
                 self.experiment_setup(
-                    'experiment-{0}{1}{2}-{3}'.format(now.year, now.month, now.day, now.hour),
+                    'experiment-{0}-{1}{2}{3}-{4}'.format(self.node_id, now.year, now.month, now.day, now.hour),
                     LAST_EXPERIMENT
                 )
             except m_common.ExperimentSetupException:
@@ -345,11 +269,9 @@ class Node:
         if type(profile) is bottle.FileUpload:
             try:
                 os.makedirs(os.path.dirname(LAST_PROFILE))
-                print('created {0}'.format(os.path.dirname(LAST_PROFILE)))
             except OSError as exception:
                 if exception.errno != errno.EEXIST:
                     raise
-            print('saving {0}'.format(LAST_PROFILE))
             profile.save(LAST_PROFILE, overwrite=True)
         # identify hardware
         self.node_hardware = node_profile['hardware']
@@ -519,11 +441,9 @@ class Node:
         if type(behavior) is bottle.FileUpload:
             try:
                 os.makedirs(os.path.dirname(LAST_EXPERIMENT))
-                print('created {0}'.format(os.path.dirname(LAST_EXPERIMENT)))
             except OSError as exception:
                 if exception.errno != errno.EEXIST:
                     raise
-            print('saving {0}'.format(LAST_PROFILE))
             behavior.save(LAST_EXPERIMENT, overwrite=True)
         # choose the output formats
         self.output = output
@@ -621,11 +541,25 @@ class Node:
             self.experiment_loader.clean()
             self.experiment_loader = None
 
+        # reset node state
+        self.node_reset()
+
         # reset the experiment state
         self.experiment_id = None
         self.experiment_state = EXPERIMENT_UNDEFINED
         self.experiment_firmwares = None
         self.experiment_scheduler = m_experiment_scheduler.Scheduler()
+
+        # try to reload the last experiment
+        if self.node_state == NODE_READY and os.path.exists(LAST_EXPERIMENT):
+            now = datetime.now()
+            try:
+                self.experiment_setup(
+                    'experiment-{0}-{1}{2}{3}-{4}'.format(self.node_id, now.year, now.month, now.day, now.hour),
+                    LAST_EXPERIMENT
+                )
+            except m_common.ExperimentSetupException:
+                pass
 
     def _experiment_end(self):
         self._io_debug('end')
@@ -740,6 +674,13 @@ class Node:
         if command not in NODE_GET_COMMANDS:
             bottle.response.status = m_common.REST_REQUEST_ERROR
             return m_common.ERROR_COMMAND_UNKNOWN.format(command + '(GET)')
+        # check that command is allowed in this context
+        if self.node_state not in NODE_COMMAND_ALLOWED_STATES[command]:
+            bottle.response.status = m_common.REST_REQUEST_ERROR
+            return m_common.ERROR_COMMAND_FORBIDDEN.format(
+                command,
+                'state: {0}'.format(NODE_STATES[self.node_state])
+            )
         # issue the command and return
         try:
             self.node_commands[command]()
@@ -755,6 +696,13 @@ class Node:
         if command not in NODE_POST_COMMANDS:
             bottle.response.status = m_common.REST_REQUEST_ERROR
             return m_common.ERROR_COMMAND_UNKNOWN.format(command + '(POST)')
+        # check that command is allowed in this context
+        if self.node_state not in NODE_COMMAND_ALLOWED_STATES[command]:
+            bottle.response.status = m_common.REST_REQUEST_ERROR
+            return m_common.ERROR_COMMAND_FORBIDDEN.format(
+                command,
+                'state: {0}'.format(NODE_STATES[self.node_state])
+            )
         # node_load arguments
         arguments = {}
         for required_file_argument in NODE_REQUIRED_ARGUMENTS[command]['files']:
@@ -781,6 +729,13 @@ class Node:
         if command not in EXPERIMENT_GET_COMMANDS:
             bottle.response.status = m_common.REST_REQUEST_ERROR
             return m_common.ERROR_COMMAND_UNKNOWN.format(command + '(GET)')
+        # check that command is allowed in this context
+        if self.experiment_state not in EXPERIMENT_COMMAND_ALLOWED_STATES[command]:
+            bottle.response.status = m_common.REST_REQUEST_FORBIDDEN
+            return m_common.ERROR_COMMAND_FORBIDDEN.format(
+                command,
+                'state: {0}'.format(EXPERIMENT_STATES[self.node_state])
+            )
         # issue the command and return
         try:
             self.experiment_commands[command]()
@@ -796,6 +751,13 @@ class Node:
         if command not in EXPERIMENT_POST_COMMANDS:
             bottle.response.status = m_common.REST_REQUEST_ERROR
             return m_common.ERROR_COMMAND_UNKNOWN.format(command + '(POST)')
+        # check that command is allowed in this context
+        if self.experiment_state not in EXPERIMENT_COMMAND_ALLOWED_STATES[command]:
+            bottle.response.status = m_common.REST_REQUEST_FORBIDDEN
+            return m_common.ERROR_COMMAND_FORBIDDEN.format(
+                command,
+                'state: {0}'.format(EXPERIMENT_STATES[self.node_state])
+            )
         # load arguments
         arguments = {}
         for required_file_argument in EXPERIMENT_REQUIRED_ARGUMENTS[command]['files']:

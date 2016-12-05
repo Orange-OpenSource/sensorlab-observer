@@ -81,7 +81,7 @@ import packet as sniffer
 
 # WRITE_PAD: Define a per-line delay on writes so we won't spam the
 # buffers in the pty layer or gpsd itself. Values smaller than the
-# system timer tick don't make any difference here.
+# m_system timer tick don't make any difference here.
 
 # CLOSE_DELAY: We delay briefly after a GPS source is exhausted before
 # removing it.  This should give its subscribers time to get gpsd's

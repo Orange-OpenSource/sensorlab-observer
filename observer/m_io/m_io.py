@@ -4,8 +4,8 @@ Input/Output module.
 
 `author`	:	Quentin Lampin <quentin.lampin@orange.com>
 `license`	:	MPL
-`date`		:	2015/10/12
-Copyright 2015 Orange
+`date`		:	2016/12/05
+Copyright 2016 Orange
 
 """
 import os
@@ -35,6 +35,31 @@ GET_COMMANDS = [m_common.COMMAND_STATUS,
                 m_common.COMMAND_RESET]
 
 POST_COMMANDS = [m_common.COMMAND_SETUP]
+
+IO_COMMAND_ALLOWED_STATES = {
+    m_common.COMMAND_STATUS: [
+        IO_DISCONNECTED,
+        IO_READY,
+        IO_CONNECTING,
+        IO_CONNECTED,
+        IO_DISCONNECTING
+    ],
+    m_common.COMMAND_START: [
+        IO_READY,
+        IO_DISCONNECTED
+    ],
+    m_common.COMMAND_STOP: [
+        IO_CONNECTED
+    ],
+    m_common.COMMAND_RESET: [
+        IO_READY,
+        IO_DISCONNECTED
+    ],
+    m_common.COMMAND_SETUP: [
+        IO_READY,
+        IO_DISCONNECTED,
+    ]
+}
 
 # POST request arguments
 BROKER_ADDRESS = 'address'
@@ -132,6 +157,8 @@ class IO:
                 self._receive(message)
 
             def on_disconnect(client, userdata, connection_result):
+                del client, userdata
+                print('MQTT disconnection: {0}'.format(connection_result))
                 if connection_result != 0:
                     pass
 
@@ -140,6 +167,7 @@ class IO:
                 pass
 
             def on_log(client, userdata, level, buf):
+                del client, userdata, level, buf
                 pass
 
             self.client.on_connect = on_connect
@@ -182,6 +210,7 @@ class IO:
     def stop(self):
         if self.client:
             self.state = IO_DISCONNECTING
+            dispatcher.disconnect(self._send, signal=m_common.IO_SEND)
             self.client.disconnect()
             self.client.loop_stop()
             self.state = IO_READY
@@ -201,6 +230,13 @@ class IO:
         if command not in GET_COMMANDS:
             bottle.response.status = m_common.REST_REQUEST_ERROR
             return m_common.ERROR_COMMAND_UNKNOWN.format(command + '(GET)')
+        # check that command is allowed in this context
+        if self.state not in IO_COMMAND_ALLOWED_STATES[command]:
+            bottle.response.status = m_common.REST_REQUEST_FORBIDDEN
+            return m_common.ERROR_COMMAND_FORBIDDEN.format(
+                command,
+                'state: {0}'.format(IO_STATES[self.state])
+            )
         # issue the command and return
         try:
             self.commands[command]()
@@ -215,6 +251,13 @@ class IO:
         if command not in POST_COMMANDS:
             bottle.response.status = m_common.REST_REQUEST_ERROR
             return m_common.ERROR_COMMAND_UNKNOWN.format(command + '(POST)')
+        # check that command is allowed in this context
+        if self.state not in IO_COMMAND_ALLOWED_STATES[command]:
+            bottle.response.status = m_common.REST_REQUEST_FORBIDDEN
+            return m_common.ERROR_COMMAND_FORBIDDEN.format(
+                command,
+                'state: {0}'.format(IO_STATES[self.state])
+            )
         # load arguments
         arguments = {}
         for required_file_argument in REQUIRED_ARGUMENTS[command]['files']:
