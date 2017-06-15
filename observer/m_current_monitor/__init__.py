@@ -9,5 +9,5 @@ Copyright 2015 Orange
 
 
 """
-from .location import *
 
+from .current_monitor import *
