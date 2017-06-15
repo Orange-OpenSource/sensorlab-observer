@@ -47,6 +47,9 @@ IO_RECV = 'io_recv'
 # Location update signals
 LOCATION_UPDATE = 'location_update'
 
+# Current monitor update signals
+CURRENT_MONITOR_UPDATE = 'current_monitor_update'
+
 # I/O MQTT topics
 IO_TOPIC_PLATFORM_LOG = 'sensorlab/log/observer-{observer_id}/{module}/'
 IO_TOPIC_NODE_INPUT = 'sensorlab/node-{observer_id}/input/'
@@ -137,6 +140,13 @@ class LocationException(SensorlabException):
 
 class LocationSetupException(LocationException):
     """Arises when an error occurs during the location module node_setup"""
+
+class CurrentMonitorException(SensorlabException):
+    """Arises when an error occurs in the current monitoring module"""
+
+
+class CurrentMonitorSetupException(LocationException):
+    """Arises when an error occurs during the current monitoring module node_setup"""
 
 
 class SupervisorException(SensorlabException):

@@ -9,7 +9,7 @@ Current monitoring module.
 Copyright 2017 Orange
 
 """
-from   select import poll, POLLIN
+
 from pydispatch import dispatcher
 
 import sys
@@ -118,7 +118,7 @@ class CurrentMonitor(threading.Thread):
             self.power = self.ina226.get_power()
             
             dispatcher.send(
-                signal=m_common.INA226_UPDATE,
+                signal=m_common.CURRENT_MONITOR_UPDATE,
                 sender=self,
                 current=self.current,
                 shunt_voltage=self.shunt_voltage,
@@ -139,8 +139,8 @@ class CurrentMonitor(threading.Thread):
             }
     def start_proxy(self):
         if self.running:
-            raise m_common.INA226Exception(
-                m_common.ERROR_COMMAND_FORBIDDEN.format(m_common.COMMAND_START, POWER_MEASUREMENT_ROUTINE_ALREADY_RUNNING))
+            raise m_common.CurrentMonitorException(
+                m_common.ERROR_COMMAND_FORBIDDEN.format(m_common.COMMAND_START, CURRENT_MEASUREMENT_ROUTINE_ALREADY_RUNNING))
         else:
             threading.Thread.__init__(self)
             self.start()

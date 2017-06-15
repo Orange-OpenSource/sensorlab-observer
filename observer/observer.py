@@ -225,6 +225,7 @@ from . import m_node
 from . import m_io
 from . import m_location
 from . import m_system
+from . import m_current_monitor
 
 import argparse
 import platform
@@ -252,6 +253,7 @@ class Observer:
         self.io = None
         self.node = None
         self.location = None
+        self.current_monitor = None
         self.system = None
         self.debug = debug
 
@@ -265,6 +267,9 @@ class Observer:
 
         # initialize the GPS module
         self.location = m_location.GPS()
+
+        # initialize the current monitoring module
+        self.current_monitor = m_current_monitor.CurrentMonitor()
 
         # initialize the m_system module
         self.system = m_system.System()
@@ -368,6 +373,14 @@ def main():
     @bottle.route(['/location', '/location/', '/location/<command>'], method='POST')
     def location_post_command(command=m_common.COMMAND_STATUS):
         return observer.location.rest_post_command(command)
+
+    @bottle.route(['/current_monitor', '/current_monitor/', '/current_monitor/<command>'])
+    def location_get_command(command=m_common.COMMAND_STATUS):
+        return observer.current_monitor.rest_get_command(command)
+
+    @bottle.route(['/current_monitor', '/current_monitor/', '/current_monitor/<command>'], method='POST')
+    def location_post_command(command=m_common.COMMAND_STATUS):
+        return observer.current_monitor.rest_post_command(command)
 
     @bottle.route(['/system', 'system/', '/system/<command>'], method='GET')
     def system_get_command(command=m_common.COMMAND_STATUS):
