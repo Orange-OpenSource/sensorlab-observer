@@ -288,7 +288,8 @@ class Observer:
     def status(self):
         return {'node': self.node.status(),
                 'location': self.location.status(),
-                'io': self.io.status()}
+                'io': self.io.status(),
+                'current_monitor': self.current_monitor.status()}
 
     def rest_get_command(self, command):
         # check that command exists
