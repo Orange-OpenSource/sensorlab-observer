@@ -137,16 +137,19 @@ class CurrentMonitor(threading.Thread):
             print("Capture in progress")
 
             while self.running:
-                ###
-                events = p.poll(1000)
-                ###
+                #
+                events = p.poll(1000)               
+                #
                 for e in events:
+                    
                     data = buffer_ina226.read(16)
+                    ###STRUCT
                     voltage0 = (0xFFFF) & (data[0] | data[1] << 8)
                     voltage1 = (0xFFFF) & (data[2] | data[3] << 8)
                     power2 =   (0xFFFF) & (data[4] | data[5] << 8)
                     current3 = (0xFFFF) & (data[6] | data[7] << 8)
                     timestamp = (0xFFFFFFFFFFFFFFFF) & (data[8] | data[9] << 8 | data[10] << 16 | data[11] << 24 | data[12] << 32 | data[13] << 40 | data[14] << 48 | data[15] << 56 )
+                    
                     self.current.append(current3*self.current_LSB)
                     self.shunt_voltage.append(voltage0*self.shunt_voltage_LSB)
                     self.bus_voltage.append(voltage1*self.bus_voltage_LSB)
@@ -161,29 +164,15 @@ class CurrentMonitor(threading.Thread):
                 bus_voltage=self.bus_voltage,
                 power=self.power,
                 )
-
+                
             buffer_ina226.close                     
-            
+           
         except Exception as e:
             self.running = False
-
-        """
-        while self.running: 
-            
-            self.current = self.ina226.get_current()
-            self.shunt_voltage = self.ina226.get_shunt_voltage()
-            self.bus_voltage = self.ina226.get_bus_voltage()
-            self.power = self.ina226.get_power()
-            self.timestamp = time.time()
-            """
-           
-
-            
 
     def status(self):
         
         return {
-        
             'Current': self.current if self.current else CURRENT_UNDEFINED,
             'Shunt voltage': self.shunt_voltage if self.shunt_voltage else SHUNT_VOLTAGE_UNDEFINED,
             'Bus voltage': self.bus_voltage if self.bus_voltage else BUS_VOLTAGE_UNDEFINED,
@@ -191,15 +180,6 @@ class CurrentMonitor(threading.Thread):
             'Time stamp': self.timestamp if self.timestamp else TIMESTAMP_UNDEFINED,
             'State': CURRENT_MONITOR_STATES[self.state]
             }
-        
-    def clear_measurement(self):
-
-        self.current = []
-        self.shunt_voltage = []
-        self.bus_voltage = []
-        self.power = []
-        self.timestamp = []
-
         
 
     def start_proxy(self):
@@ -213,7 +193,11 @@ class CurrentMonitor(threading.Thread):
     def stop(self):
         self.running = False
         self.join()
-        self.clear_measurement()
+        self.current = []
+        self.shunt_voltage = []
+        self.bus_voltage = []
+        self.power = []
+        self.timestamp = []
         self.state = CURRENT_MONITOR_HALTED
         self.ina226.disable_buffer()
 
