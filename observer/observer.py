@@ -266,7 +266,7 @@ class Observer:
         self.io = m_io.IO(node_id)
 
         # initialize the GPS module
-        self.location = m_location.GPS()
+        #self.location = m_location.GPS()
 
         # initialize the current monitoring module
         self.current_monitor = m_current_monitor.CurrentMonitor()
@@ -376,7 +376,7 @@ def main():
         return observer.location.rest_post_command(command)
 
     @bottle.route(['/current_monitor', '/current_monitor/', '/current_monitor/<command>'])
-    def location_get_command(command=m_common.COMMAND_STATUS):
+    def current_monitor_get_command(command=m_common.COMMAND_STATUS):
         return observer.current_monitor.rest_get_command(command)
 
     @bottle.route(['/current_monitor', '/current_monitor/', '/current_monitor/<command>'], method='POST')

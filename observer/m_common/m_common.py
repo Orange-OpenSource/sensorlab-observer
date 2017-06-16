@@ -47,9 +47,10 @@ IO_RECV = 'io_recv'
 # Location update signals
 LOCATION_UPDATE = 'location_update'
 
+##################
 # Current monitor update signals
 CURRENT_MONITOR_UPDATE = 'current_monitor_update'
-
+#############
 # I/O MQTT topics
 IO_TOPIC_PLATFORM_LOG = 'sensorlab/log/observer-{observer_id}/{module}/'
 IO_TOPIC_NODE_INPUT = 'sensorlab/node-{observer_id}/input/'

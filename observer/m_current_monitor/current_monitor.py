@@ -9,15 +9,14 @@ Current monitoring module.
 Copyright 2017 Orange
 
 """
-
-from pydispatch import dispatcher
-
+"""
 import sys
 import os
 import time
+"""
 import threading
 import bottle
-
+from pydispatch import dispatcher
 from .. import m_common
 from . import m_ina226
 
@@ -25,7 +24,7 @@ from . import m_ina226
 CURRENT_MONITOR_HALTED = 0
 CURRENT_MONITOR_RUNNING = 1
 CURRENT_MONITOR_UNDEFINED = 2
-CURRENT_MONITOR_STATES = ('halted', 'running','undefined')
+CURRENT_MONITOR_STATES = ('halted', 'running', 'undefined')
 
 # node_commands
 GET_COMMANDS = [m_common.COMMAND_STATUS, m_common.COMMAND_START, m_common.COMMAND_STOP]
@@ -52,8 +51,16 @@ POWER_UNDEFINED = 'power undefined'
 # exception messages
 CURRENT_MEASUREMENT_ROUTINE_ALREADY_RUNNING = 'current measurement routine already running'
 
+#####
+def start(self):
+    self.threadlock = threading.Lock()
+    threading.Thread(target=self.run)
+####
+
 class CurrentMonitor(threading.Thread):
+    
     def __init__(self):
+       
         threading.Thread.__init__(self)
         self.running = False
         self.state = CURRENT_MONITOR_UNDEFINED
@@ -78,7 +85,7 @@ class CurrentMonitor(threading.Thread):
             m_common.COMMAND_STOP: self.stop,
         }
 
-    def setup(self,calibration,bufferLength,averageNumber,shuntVoltageIntegrationTime,busVoltageIntgrationTime,operatingMode):
+    def setup(self,calibration,buffer_length,average_number,shunt_voltage_integration_time,bus_voltage_integration_time,operating_mode):
 		
         if self.running:
             self.stop()
@@ -92,21 +99,19 @@ class CurrentMonitor(threading.Thread):
         self.ina226.disable_buffer()
         #configure ina226
         self.ina226.set_calibration(int(calibration))
-        self.ina226.set_buffer_length(int(bufferLength))
+        self.ina226.set_buffer_length(int(buffer_length))
         self.ina226.enable_channel_bus_voltage()
         self.ina226.enable_channel_shunt_voltage()
         self.ina226.enable_channel_timestamp()
         self.ina226.enable_channel_current()
         self.ina226.enable_channel_power()
-        self.ina226.set_average(int(averageNumber))
-        self.ina226.set_shunt_voltage_integration_time(float(shuntVoltageIntegrationTime))
-        self.ina226.set_bus_voltage_integration_time(float(busVoltageIntgrationTime))
-        self.ina226.set_operating_mode(int(operatingMode))
+        self.ina226.set_average(int(average_number))
+        self.ina226.set_shunt_voltage_integration_time(float(shunt_voltage_integration_time))
+        self.ina226.set_bus_voltage_integration_time(float(bus_voltage_integration_time))
+        self.ina226.set_operating_mode(int(operating_mode))
 
-    def start(self):
-        self.threadlock = threading.Lock()
-        threading.Thread(target=self.run)
-
+    
+    
     def run(self):   
         self.running = True
         self.state = CURRENT_MONITOR_RUNNING
@@ -129,12 +134,12 @@ class CurrentMonitor(threading.Thread):
     def status(self):
         return {
         
-            'current': self.current if self.current else CURRENT_UNDEFINED,
-            'shunt voltage': self.shunt_voltage if self.shunt_voltage else SHUNT_VOLTAGE_UNDEFINED,
-            'bus voltage': self.bus_voltage if self.bus_voltage else BUS_VOLTAGE_UNDEFINED,
-            'power': self.power if self.power else POWER_UNDEFINED,
+            'Current': self.current if self.current else CURRENT_UNDEFINED,
+            'Shunt voltage': self.shunt_voltage if self.shunt_voltage else SHUNT_VOLTAGE_UNDEFINED,
+            'Bus voltage': self.bus_voltage if self.bus_voltage else BUS_VOLTAGE_UNDEFINED,
+            'Power': self.power if self.power else POWER_UNDEFINED,
             'Running': self.running,
-            'state': self.state,
+            'State': self.state,
             
             }
     def start_proxy(self):
@@ -144,6 +149,8 @@ class CurrentMonitor(threading.Thread):
         else:
             threading.Thread.__init__(self)
             self.start()
+
+
 
     def stop(self):
         self.running = False

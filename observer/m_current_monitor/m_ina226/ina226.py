@@ -7,6 +7,8 @@
 Copyright 2017 Orange
 
 """
+import sys
+
 class ina226:
 	def __init__(self, device_config_path):
 		self.device_config_path = device_config_path
