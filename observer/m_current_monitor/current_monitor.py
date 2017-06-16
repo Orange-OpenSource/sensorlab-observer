@@ -9,13 +9,12 @@ Current monitoring module.
 Copyright 2017 Orange
 
 """
-"""
-import sys
-import os
+
+
 import time
-"""
 import threading
 import bottle
+from   select import poll, POLLIN
 from pydispatch import dispatcher
 from .. import m_common
 from . import m_ina226
@@ -31,7 +30,7 @@ GET_COMMANDS = [m_common.COMMAND_STATUS, m_common.COMMAND_START, m_common.COMMAN
 POST_COMMANDS = [m_common.COMMAND_SETUP]
 
 # POST request arguments
-CALIBRATION = 'calibration'
+CALIBRE = 'calibre' #choose between [0.05,0.1,0.2] depending on solder jump connextion 
 BUFFER_LENGTH = 'buffer_length'
 AVERAGE_NUMBER = 'average_number'
 SHUNT_VOLTAGE_INTEGRATION_TIME = 'shunt_voltage_integration_time'
@@ -40,13 +39,14 @@ OPERATING_MODE = 'operating_mode'
 
 # mandatory configuration arguments
 REQUIRED_ARGUMENTS = {
-    m_common.COMMAND_SETUP: {'files': [], 'forms': [CALIBRATION, BUFFER_LENGTH, AVERAGE_NUMBER, SHUNT_VOLTAGE_INTEGRATION_TIME, BUS_VOLTAGE_INTEGRATION_TIME, OPERATING_MODE]}
+    m_common.COMMAND_SETUP: {'files': [], 'forms': [CALIBRE, BUFFER_LENGTH, AVERAGE_NUMBER, SHUNT_VOLTAGE_INTEGRATION_TIME, BUS_VOLTAGE_INTEGRATION_TIME, OPERATING_MODE]}
 }
 
 CURRENT_UNDEFINED = 'current undefined'
 SHUNT_VOLTAGE_UNDEFINED = 'shunt voltage undefined'
 BUS_VOLTAGE_UNDEFINED = 'bus voltage undefined'
 POWER_UNDEFINED = 'power undefined'
+TIMESTAMP_UNDEFINED = 'time stamp undefined'
 
 # exception messages
 CURRENT_MEASUREMENT_ROUTINE_ALREADY_RUNNING = 'current measurement routine already running'
@@ -68,15 +68,20 @@ class CurrentMonitor(threading.Thread):
         self.reader_thread = None
         self.ina226 = m_ina226.ina226('/sys/bus/i2c/devices/1-0040/iio:device0/')
         self.device_path = "/dev/iio:device0"
-        self.output_file_path = "/tmp/ina226_output.txt"
-
+        
+        self.CALIBRATION = 0x0847
         self.offset = None
+        self.current_LSB = None
+        self.shunt_voltage_LSB = 0.0000025
+        self.bus_voltage_LSB = 0.00125
+        self.power_LSB = None
+
         self.current = None
         self.shunt_voltage = None
         self.bus_voltage = None
         self.power = None
+        self.timestamp = None
         
-
         # link node_commands to instance methods
         self.commands = {
             m_common.COMMAND_STATUS: self.status,
@@ -85,20 +90,25 @@ class CurrentMonitor(threading.Thread):
             m_common.COMMAND_STOP: self.stop,
         }
 
-    def setup(self,calibration,buffer_length,average_number,shunt_voltage_integration_time,bus_voltage_integration_time,operating_mode):
+    def setup(self,calibre,buffer_length,average_number,shunt_voltage_integration_time,bus_voltage_integration_time,operating_mode):
 		
         if self.running:
             self.stop()
        
-        self.current = None
-        self.shunt_voltage = None
-        self.bus_voltage = None
-        self.power = None
+        self.state = CURRENT_MONITOR_HALTED
+        self.current = []
+        self.shunt_voltage = []
+        self.bus_voltage = []
+        self.power = []
+        self.timestamp = []
 
+        self.current_LSB = float(calibre)/pow(2,15)
+        self.power_LSB = self.current_LSB*25
+        
         #disable buffer in case it is enabled
         self.ina226.disable_buffer()
         #configure ina226
-        self.ina226.set_calibration(int(calibration))
+        self.ina226.set_calibration(self.CALIBRATION)
         self.ina226.set_buffer_length(int(buffer_length))
         self.ina226.enable_channel_bus_voltage()
         self.ina226.enable_channel_shunt_voltage()
@@ -116,13 +126,34 @@ class CurrentMonitor(threading.Thread):
         self.running = True
         self.state = CURRENT_MONITOR_RUNNING
 
-        while self.running: 
-            self.current = self.ina226.get_current()
-            self.shunt_voltage = self.ina226.get_shunt_voltage()
-            self.bus_voltage = self.ina226.get_bus_voltage()
-            self.power = self.ina226.get_power()
+        try:
+            #enable buffer 
+            self.ina226.enable_buffer()
+            buffer_ina226 = open(self.device_path, "rb")
             
-            dispatcher.send(
+            p = poll()
+            p.register(buffer_ina226.fileno(), POLLIN)
+
+            print("Capture in progress")
+
+            while self.running:
+                ###
+                events = p.poll(1000)
+                ###
+                for e in events:
+                    data = buffer_ina226.read(16)
+                    voltage0 = (0xFFFF) & (data[0] | data[1] << 8)
+                    voltage1 = (0xFFFF) & (data[2] | data[3] << 8)
+                    power2 =   (0xFFFF) & (data[4] | data[5] << 8)
+                    current3 = (0xFFFF) & (data[6] | data[7] << 8)
+                    timestamp = (0xFFFFFFFFFFFFFFFF) & (data[8] | data[9] << 8 | data[10] << 16 | data[11] << 24 | data[12] << 32 | data[13] << 40 | data[14] << 48 | data[15] << 56 )
+                    self.current.append(current3*self.current_LSB)
+                    self.shunt_voltage.append(voltage0*self.shunt_voltage_LSB)
+                    self.bus_voltage.append(voltage1*self.bus_voltage_LSB)
+                    self.power.append(power2*self.power_LSB)
+                    self.timestamp.append(timestamp)
+                    
+                dispatcher.send(
                 signal=m_common.CURRENT_MONITOR_UPDATE,
                 sender=self,
                 current=self.current,
@@ -131,17 +162,46 @@ class CurrentMonitor(threading.Thread):
                 power=self.power,
                 )
 
+            buffer_ina226.close                     
+            
+        except Exception as e:
+            self.running = False
+
+        """
+        while self.running: 
+            
+            self.current = self.ina226.get_current()
+            self.shunt_voltage = self.ina226.get_shunt_voltage()
+            self.bus_voltage = self.ina226.get_bus_voltage()
+            self.power = self.ina226.get_power()
+            self.timestamp = time.time()
+            """
+           
+
+            
+
     def status(self):
+        
         return {
         
             'Current': self.current if self.current else CURRENT_UNDEFINED,
             'Shunt voltage': self.shunt_voltage if self.shunt_voltage else SHUNT_VOLTAGE_UNDEFINED,
             'Bus voltage': self.bus_voltage if self.bus_voltage else BUS_VOLTAGE_UNDEFINED,
             'Power': self.power if self.power else POWER_UNDEFINED,
-            'Running': self.running,
-            'State': self.state,
-            
+            'Time stamp': self.timestamp if self.timestamp else TIMESTAMP_UNDEFINED,
+            'State': CURRENT_MONITOR_STATES[self.state]
             }
+        
+    def clear_measurement(self):
+
+        self.current = []
+        self.shunt_voltage = []
+        self.bus_voltage = []
+        self.power = []
+        self.timestamp = []
+
+        
+
     def start_proxy(self):
         if self.running:
             raise m_common.CurrentMonitorException(
@@ -150,11 +210,12 @@ class CurrentMonitor(threading.Thread):
             threading.Thread.__init__(self)
             self.start()
 
-
-
     def stop(self):
         self.running = False
         self.join()
+        self.clear_measurement()
+        self.state = CURRENT_MONITOR_HALTED
+        self.ina226.disable_buffer()
 
     def rest_get_command(self, command):
         # check that command exists
