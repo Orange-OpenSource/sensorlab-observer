@@ -71,6 +71,7 @@ class CurrentMonitor(threading.Thread):
         
         self.CALIBRATION = 0x0847
         self.offset = None
+        self.buffer_length = None
         self.current_LSB = None
         self.shunt_voltage_LSB = 0.0000025
         self.bus_voltage_LSB = 0.00125
@@ -102,6 +103,7 @@ class CurrentMonitor(threading.Thread):
         self.power = []
         self.timestamp = []
 
+        self.buffer_length = int(buffer_length)
         self.current_LSB = float(calibre)/pow(2,15)
         self.power_LSB = self.current_LSB*25
         
@@ -133,12 +135,13 @@ class CurrentMonitor(threading.Thread):
             
             p = poll()
             p.register(buffer_ina226.fileno(), POLLIN)
+            cnt = 0
 
             print("Capture in progress")
 
             while self.running:
                 #
-                events = p.poll(1000)               
+                events = p.poll(10)               
                 #
                 for e in events:
                     
@@ -150,21 +153,32 @@ class CurrentMonitor(threading.Thread):
                     current3 = (0xFFFF) & (data[6] | data[7] << 8)
                     timestamp = (0xFFFFFFFFFFFFFFFF) & (data[8] | data[9] << 8 | data[10] << 16 | data[11] << 24 | data[12] << 32 | data[13] << 40 | data[14] << 48 | data[15] << 56 )
                     
+                    
                     self.current.append(current3*self.current_LSB)
                     self.shunt_voltage.append(voltage0*self.shunt_voltage_LSB)
                     self.bus_voltage.append(voltage1*self.bus_voltage_LSB)
                     self.power.append(power2*self.power_LSB)
                     self.timestamp.append(timestamp)
-                    
-                dispatcher.send(
-                signal=m_common.CURRENT_MONITOR_UPDATE,
-                sender=self,
-                current=self.current,
-                shunt_voltage=self.shunt_voltage,
-                bus_voltage=self.bus_voltage,
-                power=self.power,
-                )
+
+                    cnt += 1
+                                        
+                if (cnt%50 == 0): 
+                    print(str(cnt) +'values read:')   
+                    dispatcher.send(
+                        signal=m_common.CURRENT_MONITOR_UPDATE,
+                        sender=self,
+                        current=self.current,
+                        shunt_voltage=self.shunt_voltage,
+                        bus_voltage=self.bus_voltage,
+                        power=self.power,
+                    )
+                    self.current = []
+                    self.shunt_voltage = []
+                    self.bus_voltage = []
+                    self.power = []
+                    self.timestamp = []
                 
+                               
             buffer_ina226.close                     
            
         except Exception as e:
@@ -173,6 +187,7 @@ class CurrentMonitor(threading.Thread):
     def status(self):
         
         return {
+            #Properties ##
             'Current': self.current if self.current else CURRENT_UNDEFINED,
             'Shunt voltage': self.shunt_voltage if self.shunt_voltage else SHUNT_VOLTAGE_UNDEFINED,
             'Bus voltage': self.bus_voltage if self.bus_voltage else BUS_VOLTAGE_UNDEFINED,

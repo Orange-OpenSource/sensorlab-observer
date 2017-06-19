@@ -22,6 +22,11 @@ LATITUDE_PROPERTY_ID = 0x02
 LONGITUDE_PROPERTY_ID = 0x03
 ALTITUDE_PROPERTY_ID = 0x04
 
+SHUNT_VOLTAGE_PROPERTY_ID = 0x05
+BUS_VOLTAGE_PROPERTY_ID = 0x06
+CURRENT_PROPERTY_ID = 0x07
+POWER_PROPERTY_ID = 0x08
+
 
 def sensorlab_header(node_id, event_id):
     """
@@ -556,7 +561,6 @@ def format_property_value(property_value, data_type):
 
     Returns:
         bytes: value
-
     """
     payload = None
     if data_type == TYPE_BOOLEAN:
