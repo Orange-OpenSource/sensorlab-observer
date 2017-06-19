@@ -586,9 +586,11 @@ def format_property_value(property_value, data_type):
     if data_type == TYPE_DOUBLE:
         payload = struct.pack("d", property_value)
     if data_type == TYPE_ASCII_ARRAY:
-        payload = property_value.encode('ascii')
+        payload = property_value.encode('ascii')  
     if data_type == TYPE_BYTE_ARRAY:
         payload = property_value
     if data_type == TYPE_INVALID:
         payload = property_value
+    if data_type == TYPE_FLOAT_ARRAY:
+        payload = struct.pack(('%sf' % len(property_value), *property_value))
     return payload

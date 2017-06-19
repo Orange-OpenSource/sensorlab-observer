@@ -172,6 +172,7 @@ class Node:
         self.bus_voltage = []
         self.current = []
         self.power = []
+        self.timestamp = []
 
         self.experiment_id = None
         self.experiment_state = EXPERIMENT_UNDEFINED
@@ -676,35 +677,41 @@ class Node:
             timestamp = time.time()
             self._io_log(timestamp, data)
 
-    def _current_monitor_update(self, shunt_voltage, bus_voltage, current, power):
+    def _current_monitor_update(self, shunt_voltage, bus_voltage, current, power,timestamp):
         self.shunt_voltage = shunt_voltage
         self.bus_voltage = bus_voltage
         self.current = current
         self.power = power
+        self.timestamp = timestamp
         self._io_debug('current monitor update: ({0},{1},{2},{3})'.format(shunt_voltage,bus_voltage,current,power))
         print("current monitor update")
         if self.experiment_state == EXPERIMENT_RUNNING\
                 and self.experiment_scheduler.state == m_experiment_scheduler.SCHEDULER_RUNNING:
             data = struct.pack("<BB", m_sensorlab.EVENT_NODE_PROPERTY_UPDATE, 4)
             data += m_sensorlab.property_reference_payload(m_sensorlab.SHUNT_VOLTAGE_PROPERTY_ID,
-                                                           m_sensorlab.TYPE_FLOAT,
-                                                           4,
+                                                           m_sensorlab.TYPE_FLOAT_ARRAY,
+                                                           4*len(self.shunt_voltage),
                                                            self.shunt_voltage)
             data += m_sensorlab.property_reference_payload(m_sensorlab.BUS_VOLTAGE_PROPERTY_ID,
-                                                           m_sensorlab.TYPE_FLOAT,
-                                                           4,
+                                                           m_sensorlab.TYPE_FLOAT_ARRAY,
+                                                           4*len(self.bus_voltage),
                                                            self.bus_voltage)
             data += m_sensorlab.property_reference_payload(m_sensorlab.CURRENT_PROPERTY_ID,
-                                                           m_sensorlab.TYPE_FLOAT,
-                                                           4,
+                                                           m_sensorlab.TYPE_FLOAT_ARRAY,
+                                                           4*len(self.current),
                                                            self.current)
             data += m_sensorlab.property_reference_payload(m_sensorlab.POWER_PROPERTY_ID,
-                                                           m_sensorlab.TYPE_FLOAT,
-                                                           4,
+                                                           m_sensorlab.TYPE_FLOAT_ARRAY,
+                                                           4*len(self.power),
                                                            self.power)
+            data += m_sensorlab.property_reference_payload(m_sensorlab.POWER_PROPERTY_ID,
+                                                           m_sensorlab.TYPE_FLOAT_ARRAY,
+                                                           4*len(self.timestamp),
+                                                           self.timestamp)
+            
             timestamp = time.time()
             self._io_log(timestamp, data)
-            print('current monitor update: ({0},{1},{2},{3})'.format(shunt_voltage,bus_voltage,current,power))
+            
 
     def rest_get_node_command(self, command):
         # check that command exists

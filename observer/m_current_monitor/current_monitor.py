@@ -167,10 +167,12 @@ class CurrentMonitor(threading.Thread):
                     dispatcher.send(
                         signal=m_common.CURRENT_MONITOR_UPDATE,
                         sender=self,
+                        shunt_voltage  = self.shunt_voltage,
+                        bus_voltage = self.bus_voltage,
                         current=self.current,
-                        shunt_voltage=self.shunt_voltage,
-                        bus_voltage=self.bus_voltage,
                         power=self.power,
+                        timestamp = self.timestamp
+                        
                     )
                     self.current = []
                     self.shunt_voltage = []
