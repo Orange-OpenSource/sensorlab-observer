@@ -14,6 +14,7 @@ Copyright 2017 Orange
 import time
 import threading
 import bottle
+import struct
 from   select import poll, POLLIN
 from pydispatch import dispatcher
 from .. import m_common
@@ -140,20 +141,12 @@ class CurrentMonitor(threading.Thread):
             print("Capture in progress")
 
             while self.running:
-                #
+
                 events = p.poll(10)               
-                #
                 for e in events:
                     
                     data = buffer_ina226.read(16)
-                    ###STRUCT
-                    voltage0 = (0xFFFF) & (data[0] | data[1] << 8)
-                    voltage1 = (0xFFFF) & (data[2] | data[3] << 8)
-                    power2 =   (0xFFFF) & (data[4] | data[5] << 8)
-                    current3 = (0xFFFF) & (data[6] | data[7] << 8)
-                    timestamp = (0xFFFFFFFFFFFFFFFF) & (data[8] | data[9] << 8 | data[10] << 16 | data[11] << 24 | data[12] << 32 | data[13] << 40 | data[14] << 48 | data[15] << 56 )
-                    
-                    
+                    voltage0, voltage1, power2, current3, timestamp = struct.unpack('<hhhhq' , data)
                     self.current.append(current3*self.current_LSB)
                     self.shunt_voltage.append(voltage0*self.shunt_voltage_LSB)
                     self.bus_voltage.append(voltage1*self.bus_voltage_LSB)
