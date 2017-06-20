@@ -146,7 +146,7 @@ class CurrentMonitorException(SensorlabException):
     """Arises when an error occurs in the current monitoring module"""
 
 
-class CurrentMonitorSetupException(LocationException):
+class CurrentMonitorSetupException(CurrentMonitorException):
     """Arises when an error occurs during the current monitoring module node_setup"""
 
 

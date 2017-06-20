@@ -43,11 +43,24 @@ REQUIRED_ARGUMENTS = {
     m_common.COMMAND_SETUP: {'files': [], 'forms': [CALIBRE, BUFFER_LENGTH, AVERAGE_NUMBER, SHUNT_VOLTAGE_INTEGRATION_TIME, BUS_VOLTAGE_INTEGRATION_TIME, OPERATING_MODE]}
 }
 
+"""
 CURRENT_UNDEFINED = 'current undefined'
 SHUNT_VOLTAGE_UNDEFINED = 'shunt voltage undefined'
 BUS_VOLTAGE_UNDEFINED = 'bus voltage undefined'
 POWER_UNDEFINED = 'power undefined'
 TIMESTAMP_UNDEFINED = 'time stamp undefined'
+"""
+CALIBRE_UNDEFINED = 'calibre undefined'
+BUFFER_LENGTH_UNDEFINED = ' buffer length undefined'
+AVERAGE_NUMBER_UNDEFINED = 'average number undefined'
+SHUNT_VOLTAGE_INTEGRATION_TIME_UNDEFINED = 'shunt voltage integration time undefined'
+BUS_VOLTAGE_INTEGRATION_TIME_UNDEFINED = 'bus voltage integration time undefined'
+OPERATING_MODE_UNDEFINED = 'operating mode undefined'
+
+CALIBRATION = 0x0847
+OFFSET = None
+SHUNT_VOLTAGE_LSB= 0.0000025
+BUS_VOLTAGE_LSB = 0.00125
 
 # exception messages
 CURRENT_MEASUREMENT_ROUTINE_ALREADY_RUNNING = 'current measurement routine already running'
@@ -69,13 +82,19 @@ class CurrentMonitor(threading.Thread):
         self.reader_thread = None
         self.ina226 = m_ina226.ina226('/sys/bus/i2c/devices/1-0040/iio:device0/')
         self.device_path = "/dev/iio:device0"
-        
-        self.CALIBRATION = 0x0847
-        self.offset = None
+ 
+        self.calibre = None
         self.buffer_length = None
+        self.average_number = None
+        self.shunt_voltage_integration_time = None
+        self.bus_voltage_integration_time = None
+        self.operating_mode = None
+
+        self.calibration = CALIBRATION
+        self.offset = OFFSET
         self.current_LSB = None
-        self.shunt_voltage_LSB = 0.0000025
-        self.bus_voltage_LSB = 0.00125
+        self.shunt_voltage_LSB = SHUNT_VOLTAGE_LSB
+        self.bus_voltage_LSB = BUS_VOLTAGE_LSB
         self.power_LSB = None
 
         self.current = None
@@ -98,33 +117,38 @@ class CurrentMonitor(threading.Thread):
             self.stop()
        
         self.state = CURRENT_MONITOR_HALTED
+        self.calibre = float(calibre)
+        self.buffer_length = int(buffer_length)
+        self.average_number = int(average_number)
+        self.shunt_voltage_integration_time = float(shunt_voltage_integration_time)
+        self.bus_voltage_integration_time = float(bus_voltage_integration_time)
+        self.operating_mode = int(operating_mode)
+
         self.current = []
         self.shunt_voltage = []
         self.bus_voltage = []
         self.power = []
         self.timestamp = []
 
-        self.buffer_length = int(buffer_length)
-        self.current_LSB = float(calibre)/pow(2,15)
+        
+        self.current_LSB = self.calibre/pow(2,15)
         self.power_LSB = self.current_LSB*25
         
         #disable buffer in case it is enabled
         self.ina226.disable_buffer()
         #configure ina226
-        self.ina226.set_calibration(self.CALIBRATION)
-        self.ina226.set_buffer_length(int(buffer_length))
+        self.ina226.set_calibration(self.calibration)
+        self.ina226.set_buffer_length(self.buffer_length)
         self.ina226.enable_channel_bus_voltage()
         self.ina226.enable_channel_shunt_voltage()
         self.ina226.enable_channel_timestamp()
         self.ina226.enable_channel_current()
         self.ina226.enable_channel_power()
-        self.ina226.set_average(int(average_number))
-        self.ina226.set_shunt_voltage_integration_time(float(shunt_voltage_integration_time))
-        self.ina226.set_bus_voltage_integration_time(float(bus_voltage_integration_time))
-        self.ina226.set_operating_mode(int(operating_mode))
+        self.ina226.set_average(self.average_number)
+        self.ina226.set_shunt_voltage_integration_time(self.shunt_voltage_integration_time)
+        self.ina226.set_bus_voltage_integration_time(self.bus_voltage_integration_time)
+        self.ina226.set_operating_mode(self.operating_mode)
 
-    
-    
     def run(self):   
         self.running = True
         self.state = CURRENT_MONITOR_RUNNING
@@ -141,8 +165,8 @@ class CurrentMonitor(threading.Thread):
             print("Capture in progress")
 
             while self.running:
-
-                events = p.poll(10)               
+                #Change poll value??
+                events = p.poll(1)               
                 for e in events:
                     
                     data = buffer_ina226.read(16)
@@ -181,14 +205,24 @@ class CurrentMonitor(threading.Thread):
 
     def status(self):
         
-        return {
-            #Properties ##
+        """
             'Current': self.current if self.current else CURRENT_UNDEFINED,
             'Shunt voltage': self.shunt_voltage if self.shunt_voltage else SHUNT_VOLTAGE_UNDEFINED,
             'Bus voltage': self.bus_voltage if self.bus_voltage else BUS_VOLTAGE_UNDEFINED,
             'Power': self.power if self.power else POWER_UNDEFINED,
             'Time stamp': self.timestamp if self.timestamp else TIMESTAMP_UNDEFINED,
-            'State': CURRENT_MONITOR_STATES[self.state]
+            """
+        return {                  
+            'State': CURRENT_MONITOR_STATES[self.state],
+            'Calibre': self.calibre if self.calibre else CALIBRE_UNDEFINED,
+            'Buffer length': self.buffer_length if self.buffer_length else BUFFER_LENGTH_UNDEFINED,
+            'Average number': self.average_number if self.average_number else AVERAGE_NUMBER_UNDEFINED,
+            'Shunt voltage integration time': self.shunt_voltage_integration_time if self.shunt_voltage_integration_time else  SHUNT_VOLTAGE_INTEGRATION_TIME_UNDEFINED,
+            'Bus voltage integration time': self.bus_voltage_integration_time if self.bus_voltage_integration_time else BUS_VOLTAGE_INTEGRATION_TIME_UNDEFINED,
+            'Operating Mode': self.operating_mode if self.operating_mode else OPERATING_MODE_UNDEFINED,
+            'Calibration': self.calibration,
+            'Offset': self.offset   
+            #Other properties???    
             }
         
 

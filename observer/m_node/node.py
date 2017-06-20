@@ -683,36 +683,35 @@ class Node:
         self.current = current
         self.power = power
         self.timestamp = timestamp
-        self._io_debug('current monitor update: ({0},{1},{2},{3})'.format(shunt_voltage,bus_voltage,current,power))
-        print("current monitor update")
+        #self._io_debug('current monitor update: ({0},{1},{2},{3})'.format(shunt_voltage,bus_voltage,current,power))
+        
         if self.experiment_state == EXPERIMENT_RUNNING\
                 and self.experiment_scheduler.state == m_experiment_scheduler.SCHEDULER_RUNNING:
             data = struct.pack("<BB", m_sensorlab.EVENT_NODE_PROPERTY_UPDATE, 4)
             data += m_sensorlab.property_reference_payload(m_sensorlab.SHUNT_VOLTAGE_PROPERTY_ID,
                                                            m_sensorlab.TYPE_FLOAT_ARRAY,
-                                                           4*len(self.shunt_voltage),
+                                                           len(self.shunt_voltage), #*4 ?
                                                            self.shunt_voltage)
             data += m_sensorlab.property_reference_payload(m_sensorlab.BUS_VOLTAGE_PROPERTY_ID,
                                                            m_sensorlab.TYPE_FLOAT_ARRAY,
-                                                           4*len(self.bus_voltage),
+                                                           len(self.bus_voltage), #*4 ?
                                                            self.bus_voltage)
             data += m_sensorlab.property_reference_payload(m_sensorlab.CURRENT_PROPERTY_ID,
                                                            m_sensorlab.TYPE_FLOAT_ARRAY,
-                                                           4*len(self.current),
+                                                           len(self.current), #*4 ?
                                                            self.current)
             data += m_sensorlab.property_reference_payload(m_sensorlab.POWER_PROPERTY_ID,
                                                            m_sensorlab.TYPE_FLOAT_ARRAY,
-                                                           4*len(self.power),
+                                                           len(self.power), #*4 ?
                                                            self.power)
             data += m_sensorlab.property_reference_payload(m_sensorlab.POWER_PROPERTY_ID,
                                                            m_sensorlab.TYPE_FLOAT_ARRAY,
-                                                           4*len(self.timestamp),
+                                                           len(self.timestamp), #*4 ?
                                                            self.timestamp)
             
             timestamp = time.time()
             self._io_log(timestamp, data)
             
-
     def rest_get_node_command(self, command):
         # check that command exists
         if command not in NODE_GET_COMMANDS:
