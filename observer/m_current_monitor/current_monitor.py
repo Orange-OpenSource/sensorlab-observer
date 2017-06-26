@@ -36,10 +36,10 @@ POST_COMMANDS = [m_common.COMMAND_SETUP]
 # POST request arguments
 CALIBRE = 'calibre' #choose between [0.05,0.1,0.2] depending on solder jump connextion 
 BUFFER_LENGTH = 'buffer_length'
-AVERAGE_NUMBER = 'average_number'
-SHUNT_VOLTAGE_INTEGRATION_TIME = 'shunt_voltage_integration_time'
-BUS_VOLTAGE_INTEGRATION_TIME = 'bus_voltage_integration_time'
-OPERATING_MODE = 'operating_mode'
+AVERAGE_NUMBER = 'average_number' #[1 4 16 64 128 256 512 1024]
+SHUNT_VOLTAGE_INTEGRATION_TIME = 'shunt_voltage_integration_time' #[0.000140 0.000204 0.000332 0.000588 0.001100 0.002116 0.004156 0.008244] [seconds]
+BUS_VOLTAGE_INTEGRATION_TIME = 'bus_voltage_integration_time' #[0.000140 0.000204 0.000332 0.000588 0.001100 0.002116 0.004156 0.008244] [seconds]
+OPERATING_MODE = 'operating_mode' #[0,1,2,3,4,5,6,7] (cf datasheet)
 CHANNEL_BUS_VOLTAGE_ENABLED = 'channel_bus_voltage_enabled'
 CHANNEL_SHUNT_VOLTAGE_ENABLED = 'channel_shunt_voltage_enabled'
 CHANNEL_TIMESTAMP_ENABLED = 'channel_timestamp_enabled'
@@ -50,7 +50,6 @@ CHANNEL_POWER_ENABLED = 'channel_power_enabled'
 REQUIRED_ARGUMENTS = {
     m_common.COMMAND_SETUP: {'files': [], 'forms': [CALIBRE, BUFFER_LENGTH, AVERAGE_NUMBER, SHUNT_VOLTAGE_INTEGRATION_TIME, BUS_VOLTAGE_INTEGRATION_TIME, OPERATING_MODE, CHANNEL_BUS_VOLTAGE_ENABLED, CHANNEL_SHUNT_VOLTAGE_ENABLED, CHANNEL_TIMESTAMP_ENABLED, CHANNEL_CURRENT_ENABLED, CHANNEL_POWER_ENABLED]}
 }
-
 
 CURRENT_UNDEFINED = 'current undefined'
 SHUNT_VOLTAGE_UNDEFINED = 'shunt voltage undefined'
@@ -67,26 +66,33 @@ SAMPLING_PERIOD_UNDEFINE = 'sampling period undefined'
 REAL_SAMPLING_PERIOD_UNDEFINE = 'real sampling period undefined'
 
 CALIBRATION = 0x0847
-OFFSET = None
-SHUNT_VOLTAGE_LSB= 0.0000025
-BUS_VOLTAGE_LSB = 0.00125
+###
+SHUNT_VOLTAGE_OFFSET = 3
+CURRENT_OFFSET = 3
+###
+SHUNT_VOLTAGE_LSB= 0.0000025 #[V/bit]
+BUS_VOLTAGE_LSB = 0.00125    #[V/bit]
+DEVICE = '/sys/bus/i2c/devices/1-0040/iio:device0/'
+DEVICE_PATH = "/dev/iio:device0"
 
 # exception messages
 CURRENT_MEASUREMENT_ROUTINE_ALREADY_RUNNING = 'current measurement routine already running'
-NO_MEASUREMENT_CHANNEL_ENABLED = "no measurement channel enabled"
+#Other exception? exemple no channel enabled
 
+###
 def timestamp_to_date(timestamp_nano):
     dt = datetime.fromtimestamp(timestamp_nano // 1000000000)
     output = dt.strftime('%Y-%m-%d %H:%M:%S')
     output += '.' + str(int(timestamp_nano % 1000000000)).zfill(9)
 
     return output
+###
 
-#####
+###
 def start(self):
     self.threadlock = threading.Lock()
     threading.Thread(target=self.run)
-####
+###
 
 class CurrentMonitor(threading.Thread):
     
@@ -97,8 +103,8 @@ class CurrentMonitor(threading.Thread):
         self.state = CURRENT_MONITOR_UNDEFINED
         self.reader_running = False
         self.reader_thread = None
-        self.ina226 = m_ina226.ina226('/sys/bus/i2c/devices/1-0040/iio:device0/')
-        self.device_path = "/dev/iio:device0"
+        self.ina226 = m_ina226.ina226(DEVICE)
+        self.device_path = DEVICE_PATH
  
         self.calibre = None
         self.buffer_length = None
@@ -113,7 +119,8 @@ class CurrentMonitor(threading.Thread):
         self.channel_power_enabled = None
 
         self.calibration = CALIBRATION
-        self.offset = OFFSET
+        self.shunt_voltage_offset = SHUNT_VOLTAGE_OFFSET
+        self.current_offset = CURRENT_OFFSET
         self.current_LSB = None
         self.shunt_voltage_LSB = SHUNT_VOLTAGE_LSB
         self.bus_voltage_LSB = BUS_VOLTAGE_LSB
@@ -160,7 +167,6 @@ class CurrentMonitor(threading.Thread):
         self.power = []
         self.timestamp = []
 
-        
         if self.operating_mode == 1 or self.operating_mode == 5:
             self.sampling_period = self.shunt_voltage_integration_time*self.average_number
         elif self.operating_mode == 2 or self.operating_mode == 6:
@@ -170,7 +176,6 @@ class CurrentMonitor(threading.Thread):
         else:
             self.sampling_period = 0
 
-        
         self.current_LSB = self.calibre/pow(2,15)
         self.power_LSB = self.current_LSB*25
         
@@ -237,14 +242,7 @@ class CurrentMonitor(threading.Thread):
                 unpackFormat += "Q"
             
             nBytes = struct.calcsize(unpackFormat)
-            print(unpackFormat)
-            print(nBytes)
-            
-            """
-            if nBytes == 0:
-                raise m_common.CurrentMonitorException(
-                m_common.ERROR_COMMAND_FORBIDDEN.format(m_common.COMMAND_SETUP , NO_CHANNEL_ENABLED))
-            """
+
             p = poll()
             p.register(buffer_ina226.fileno(), POLLIN)
 
@@ -253,43 +251,24 @@ class CurrentMonitor(threading.Thread):
                 
                 events = p.poll(int(self.sampling_period*1000*self.buffer_length))       #OK????    /!\ Tsampling >1??   
                 for e in events:
-                    
                     data = buffer_ina226.read(nBytes)
+                    data_raw = struct.unpack(unpackFormat,data) 
+                    data_raw_list = [x for x in data_raw] #data_raw is a tuple. to use pop() method we need a list
                     
-                    data_raw = struct.unpack(unpackFormat,data)
-                    print(data_raw)
-                    #ShuntVoltage,BusVoltage,Power,Current,Timestamp
-                    data_ordered=[None,None,None,None,None]
-                    for element in data_raw:
-                        if self.channel_shunt_voltage_enabled and data_ordered[0] == None:
-                            data_ordered[0] = int(element)
-                        elif self.channel_bus_voltage_enabled and data_ordered[1] == None:
-                            data_ordered[1] = int(element)
-                        elif self.channel_power_enabled and data_ordered[2] == None:
-                            data_ordered[2] = int(element)
-                        elif self.channel_current_enabled and data_ordered[3] == None:
-                            data_ordered[3] = int(element)
-                        elif self.channel_timestamp_enabled and data_ordered[4] == None:
-                            data_ordered[4] = int(element)
-                    
-                    if self.channel_shunt_voltage_enabled:
-                        self.shunt_voltage.append(data_ordered[0]*self.shunt_voltage_LSB)
-                        
-                    if self.channel_bus_voltage_enabled:
-                        self.bus_voltage.append(data_ordered[1]*self.bus_voltage_LSB)
-                        
-                    if self.channel_power_enabled:
-                        self.power.append(data_ordered[2]*self.power_LSB)
-                        
+                    if self.channel_timestamp_enabled: #WARNING:Timestamp in nanoseconds
+                        self.timestamp.append(data_raw_list.pop())
                     if self.channel_current_enabled:
-                        self.current.append(data_ordered[3]*self.current_LSB)
-                        
-                    if self.channel_timestamp_enabled: #WARNING: Send time stamp in another format?
-                        self.timestamp.append(data_ordered[4])
-
+                        self.current.append((data_raw_list.pop()-self.current_offset)*self.current_LSB)
+                    if self.channel_power_enabled:
+                        self.power.append(data_raw_list.pop()*self.power_LSB)
+                    if self.channel_bus_voltage_enabled:
+                        self.bus_voltage.append(data_raw_list.pop()*self.bus_voltage_LSB)
+                    if self.channel_shunt_voltage_enabled:
+                        self.shunt_voltage.append((data_raw_list.pop()-self.shunt_voltage_offset)*self.shunt_voltage_LSB)
+                    
                     cnt += 1
-                                     
-                if ((time.time()-t) >= 20):  #One update every 20 seconds ????????
+
+                if ((time.time()-t) >= 20):  #One update every 20 seconds
                     self.sampling_period_real = (time.time() - t)/(cnt-prev_cnt)
                     t = time.time()
                     prev_cnt = cnt
@@ -304,14 +283,12 @@ class CurrentMonitor(threading.Thread):
                         timestamp = self.timestamp,
                                            
                     )
-                    
-                    
+
                     self.shunt_voltage = []
                     self.bus_voltage = []
                     self.current = []
                     self.power = []
-                    self.timestamp = []
-                
+                    self.timestamp = [] 
                                
             buffer_ina226.close                     
             
@@ -328,8 +305,8 @@ class CurrentMonitor(threading.Thread):
             'Shunt voltage integration time [s]': self.shunt_voltage_integration_time if self.shunt_voltage_integration_time else  SHUNT_VOLTAGE_INTEGRATION_TIME_UNDEFINED,
             'Bus voltage integration time [s]': self.bus_voltage_integration_time if self.bus_voltage_integration_time else BUS_VOLTAGE_INTEGRATION_TIME_UNDEFINED,
             'Operating Mode': self.operating_mode if self.operating_mode else OPERATING_MODE_UNDEFINED,
-            'Calibration': self.calibration,
-            'Offset': self.offset,   
+            'Shunt voltage offset [V]': self.shunt_voltage_offset*self.shunt_voltage_LSB, 
+            'Current offset [A]':self.current_offset*self.current_LSB,  
             'Sampling period [s]': self.sampling_period if self.sampling_period else SAMPLING_PERIOD_UNDEFINE,
             'approximation of the real sampling period [s]': self.sampling_period_real if self.sampling_period_real else REAL_SAMPLING_PERIOD_UNDEFINE,
             'channel bus voltage enabled': self.channel_bus_voltage_enabled,
@@ -342,7 +319,9 @@ class CurrentMonitor(threading.Thread):
             'Bus voltage': self.bus_voltage if self.bus_voltage else BUS_VOLTAGE_UNDEFINED,
             'Power': self.power if self.power else POWER_UNDEFINED,
             'Time stamp': self.timestamp if self.timestamp else TIMESTAMP_UNDEFINED,
+            
             }
+        
         
     def start_proxy(self):
         if self.running:
