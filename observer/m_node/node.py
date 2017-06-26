@@ -173,6 +173,7 @@ class Node:
         self.current = []
         self.power = []
         self.timestamp = []
+        
 
         self.experiment_id = None
         self.experiment_state = EXPERIMENT_UNDEFINED
@@ -683,32 +684,32 @@ class Node:
         self.current = current
         self.power = power
         self.timestamp = timestamp
+        
         #self._io_debug('current monitor update: ({0},{1},{2},{3})'.format(shunt_voltage,bus_voltage,current,power))
         
         if self.experiment_state == EXPERIMENT_RUNNING\
                 and self.experiment_scheduler.state == m_experiment_scheduler.SCHEDULER_RUNNING:
             data = struct.pack("<BB", m_sensorlab.EVENT_NODE_PROPERTY_UPDATE, 4)
             data += m_sensorlab.property_reference_payload(m_sensorlab.SHUNT_VOLTAGE_PROPERTY_ID,
-                                                           m_sensorlab.TYPE_FLOAT_ARRAY,
-                                                           len(self.shunt_voltage), #*4 ?
-                                                           self.shunt_voltage)
+                                                            m_sensorlab.TYPE_FLOAT_ARRAY,
+                                                            len(self.shunt_voltage), #*4 ?
+                                                            self.shunt_voltage)
             data += m_sensorlab.property_reference_payload(m_sensorlab.BUS_VOLTAGE_PROPERTY_ID,
-                                                           m_sensorlab.TYPE_FLOAT_ARRAY,
-                                                           len(self.bus_voltage), #*4 ?
-                                                           self.bus_voltage)
+                                                            m_sensorlab.TYPE_FLOAT_ARRAY,
+                                                            len(self.bus_voltage), #*4 ?
+                                                            self.bus_voltage)
             data += m_sensorlab.property_reference_payload(m_sensorlab.CURRENT_PROPERTY_ID,
-                                                           m_sensorlab.TYPE_FLOAT_ARRAY,
-                                                           len(self.current), #*4 ?
-                                                           self.current)
+                                                            m_sensorlab.TYPE_FLOAT_ARRAY,
+                                                            len(self.current), #*4 ?
+                                                            self.current)
             data += m_sensorlab.property_reference_payload(m_sensorlab.POWER_PROPERTY_ID,
-                                                           m_sensorlab.TYPE_FLOAT_ARRAY,
-                                                           len(self.power), #*4 ?
-                                                           self.power)
+                                                            m_sensorlab.TYPE_FLOAT_ARRAY,
+                                                            len(self.power), #*4 ?
+                                                            self.power)
             data += m_sensorlab.property_reference_payload(m_sensorlab.POWER_PROPERTY_ID,
-                                                           m_sensorlab.TYPE_FLOAT_ARRAY,
-                                                           len(self.timestamp), #*4 ?
-                                                           self.timestamp)
-            
+                                                            m_sensorlab.TYPE_FLOAT_ARRAY,
+                                                            len(self.timestamp), #*4 ?
+                                                            self.timestamp)
             timestamp = time.time()
             self._io_log(timestamp, data)
             

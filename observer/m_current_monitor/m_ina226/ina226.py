@@ -15,25 +15,25 @@ class ina226:
 	
 	def __set_config ( self, config_path, value):
 		try:
-			print('Set ', config_path, ' to ' , value)
+			#print('Set ', config_path, ' to ' , value)
 			f = open(config_path, 'w')
 			f.write(str(value))  
 			f.close()
-			print('=> OK')
+			#print('=> OK')
 		except:
-			print ("Configuring ", config_path, "with " , value, " error: ", sys.exc_info()[0])
+			#print ("Configuring ", config_path, "with " , value, " error: ", sys.exc_info()[0])
 			raise
 			
 	def __get_config ( self, config_path):
 		try:
-			print('Get ', config_path)
+			#print('Get ', config_path)
 			f = open(config_path, 'r')
 			data = f.read()  
 			f.close()
-			print('data \n=> OK')
+			#print('data \n=> OK')
 			return data
 		except:
-			print ("Configuring ", config_path, "with " , value, " error: ", sys.exc_info()[0])
+			#print ("Configuring ", config_path, "with " , value, " error: ", sys.exc_info()[0])
 			raise
 		
 	def set_calibration(self, calibration):
