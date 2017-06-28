@@ -142,8 +142,8 @@ It must contain the following structure:
 
 # I/O module
 -------------
-The I/O module is in charge of relaying 'messages' to and from the platform using the MQTT protocol.
-The I/O module exposes 3 methods, respectively to node_setup, initiate and terminate the platform broker connection:
+The I/O module is in charge of saving 'messages' to the platform database.
+The I/O module exposes 3 methods, respectively to setup, initiate and terminate the connection:
 
     - `setup`(`address`, `port`)		:	setup the I/O module to connect to address:port
     - `start`(`none`)					:	connect the I/O module.
@@ -181,13 +181,13 @@ The command API is organised as follows:
 
         - `node/`		:	redirects to `node/status`
 
-            - `setup`(`profile`)    			:	setups the node node_controller and node_serial drivers.
+            - `setup`(`profile`)    			:	setups the node node_controller and serial drivers.
             - `init`(`none`)					:	initialize the node hardware.
-            - `load`(`node_firmware`)			:	load node_firmware in the node hardware.
+            - `load`(`firmware`)			    :	load firmware in the node hardware.
             - `start`(`none`)					:	start the node hardware.
             - `stop`(`none`)					:	stop the node hardware.
             - `reset`(`none`)					:	reset the node hardware.
-            - `send`(`message`)					:	send a message to the node hardware via its node_serial interface.
+            - `send`(`message`)					:	send a message to the node hardware via its serial interface.
             - `status`(`none`) 					:	returns information on the node module.
 
         - `experiment/`	:	redirects to `experiment/status`
@@ -231,7 +231,12 @@ import argparse
 import platform
 import random
 import bottle
+import logging
 
+# logging configuration
+logging.basicConfig(level=logging.INFO)
+
+# observer states
 OBSERVER_UNDEFINED = 0
 OBSERVER_READY = 1
 OBSERVER_EXPERIMENT_RUNNING = 2
@@ -260,13 +265,14 @@ class Observer:
         # initialize the node module
         hostname = platform.node()
         node_id = int(hostname.lstrip('observer-')) if 'observer-' in hostname else random.randint(0, 255)
+        logging.info('observer-{0} booting up...'.format(node_id))
         self.node = m_node.Node(node_id, debug=self.debug)
 
         # initialize the I/O module
-        self.io = m_io.IO(node_id)
+        self.io = m_io.IO()
 
         # initialize the GPS module
-        #self.location = m_location.GPS()
+        self.location = m_location.GPS()
 
         # initialize the current monitoring module
         self.current_monitor = m_current_monitor.CurrentMonitor()
@@ -281,6 +287,7 @@ class Observer:
 
         # ready the supervisor
         self.state = OBSERVER_READY
+        logging.info('observer-{0} ready'.format(node_id))
 
     def reset(self):
         self.__init__()
@@ -294,17 +301,19 @@ class Observer:
     def rest_get_command(self, command):
         # check that command exists
         if command not in GET_COMMANDS:
-            bottle.response.node_status = m_common.REST_REQUEST_ERROR
+            logging.warning(m_common.ERROR_COMMAND_UNKNOWN.format(command + '(GET)'))
+            bottle.response.status = m_common.REST_REQUEST_ERROR
             return m_common.ERROR_COMMAND_UNKNOWN.format(command + '(GET)')
         # issue the command and return
         self.commands[command]()
-        bottle.response.node_status = m_common.REST_REQUEST_FULFILLED
+        bottle.response.status = m_common.REST_REQUEST_FULFILLED
         return self.status()
 
     def rest_post_command(self, command):
         # check that command exists
         if command not in POST_COMMANDS:
-            bottle.response.node_status = m_common.REST_REQUEST_ERROR
+            logging.warning(m_common.ERROR_COMMAND_UNKNOWN.format(command + '(GET)'))
+            bottle.response.status = m_common.REST_REQUEST_ERROR
             return m_common.ERROR_COMMAND_UNKNOWN.format(command + '(POST)')
         # node_load arguments
         arguments = {}
@@ -315,11 +324,12 @@ class Observer:
         # check that all arguments have been filled
         if any(argument is None for argument in arguments):
             missing_arguments = filter(lambda argument: arguments[argument] is None, arguments.keys())
-            bottle.response.node_status = m_common.REST_REQUEST_ERROR
+            logging.warning(m_common.ERROR_COMMAND_MISSING_ARGUMENT.format(command, missing_arguments))
+            bottle.response.status = m_common.REST_REQUEST_ERROR
             return m_common.ERROR_COMMAND_MISSING_ARGUMENT.format(command, missing_arguments)
         # issue the command
         self.commands[command](**arguments)
-        bottle.response.node_status = m_common.REST_REQUEST_FULFILLED
+        bottle.response.status = m_common.REST_REQUEST_FULFILLED
         # return the node node_status
         return self.status()
 
@@ -328,28 +338,18 @@ def main():
     # initialize the arguments parser
     parser = argparse.ArgumentParser()
     parser.add_argument('-cp', '--command_port', type=int, default=5555, help='command port')
-    parser.add_argument('-d', '--debug', type=bool, default=True, help='debug output')
+    parser.add_argument('-d', '--debug', type=bool, default=False, help='debug output')
     arguments = parser.parse_args()
 
     observer = Observer(debug=arguments.debug)
 
     @bottle.route(['/node', '/node/', '/node/<command>'])
     def node_get_command(command=m_common.COMMAND_STATUS):
-        if observer.node.experiment_state in [m_node.EXPERIMENT_RUNNING, m_node.EXPERIMENT_HALTED] \
-                and command is not m_common.COMMAND_STATUS:
-            bottle.response.status = m_common.REST_REQUEST_FORBIDDEN
-            return m_common.ERROR_COMMAND_FORBIDDEN.format(command + '(GET)',
-                                                           OBSERVER_STATES[OBSERVER_EXPERIMENT_RUNNING])
-        else:
-            return observer.node.rest_get_node_command(command)
+        return observer.node.rest_get_node_command(command)
 
     @bottle.route(['/node', '/node/', '/node/<command>'], method='POST')
     def node_post_command(command=m_common.COMMAND_STATUS):
-        if observer.node.experiment_state in [m_node.EXPERIMENT_RUNNING, m_node.EXPERIMENT_HALTED]:
-            bottle.response.status = m_common.REST_REQUEST_FORBIDDEN
-            return m_common.ERROR_COMMAND_FORBIDDEN.format(command + '(POST)')
-        else:
-            return observer.node.rest_post_node_command(command)
+        return observer.node.rest_post_node_command(command)
 
     @bottle.route(['/experiment', '/experiment/', '/experiment/<command>'])
     def experiment_get_command(command=m_common.COMMAND_STATUS):
@@ -387,6 +387,10 @@ def main():
     def system_get_command(command=m_common.COMMAND_STATUS):
         return observer.system.rest_get_command(command)
 
+    @bottle.route(['/system', 'system/', '/system/<command>'], method='POST')
+    def system_post_command(command=m_common.COMMAND_STATUS):
+        return observer.system.rest_post_command(command)
+
     @bottle.route(['/', '/<command>'])
     def supervisor_get_command(command=m_common.COMMAND_STATUS):
         return observer.rest_get_command(command)
@@ -395,4 +399,4 @@ def main():
     def supervisor_post_command(command=m_common.COMMAND_STATUS):
         return observer.rest_post_command(command)
 
-    bottle.run(host='0.0.0.0', port=arguments.command_port, debug=arguments.debug)
+    bottle.run(host='0.0.0.0', port=arguments.command_port, debug=arguments.debug, quiet=True)

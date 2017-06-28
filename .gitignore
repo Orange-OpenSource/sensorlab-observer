@@ -1,7 +1,0 @@
-*.swp
-.*.swp
-*.iml
-.DS_Store
-.idea
-.project
-*.pyc

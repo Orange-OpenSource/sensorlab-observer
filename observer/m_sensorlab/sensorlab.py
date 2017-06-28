@@ -275,7 +275,7 @@ def property_reference_payload(property_id, data_type, property_value_length, pr
     The PropertyReferencePayload structure is:
         - property_id           :  1 byte field. Property ID.
         - data_type             :  1 byte field. type of the value.
-        - property_value_length :  1 byte field. length of the property value
+        - property_value_length :  1 byte field. length if the property value
         - property_value        : property_value_length byte(s) field. Property value.
 
     Args:
@@ -561,6 +561,7 @@ def format_property_value(property_value, data_type):
 
     Returns:
         bytes: value
+
     """
     payload = None
     if data_type == TYPE_BOOLEAN:
@@ -586,7 +587,7 @@ def format_property_value(property_value, data_type):
     if data_type == TYPE_DOUBLE:
         payload = struct.pack("d", property_value)
     if data_type == TYPE_ASCII_ARRAY:
-        payload = property_value.encode('ascii')  
+        payload = property_value.encode('ascii')
     if data_type == TYPE_BYTE_ARRAY:
         payload = property_value
     if data_type == TYPE_INVALID:

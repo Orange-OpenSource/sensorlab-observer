@@ -51,11 +51,6 @@ REQUIRED_ARGUMENTS = {
     m_common.COMMAND_SETUP: {'files': [], 'forms': [CALIBRE, BUFFER_LENGTH, AVERAGE_NUMBER, SHUNT_VOLTAGE_INTEGRATION_TIME, BUS_VOLTAGE_INTEGRATION_TIME, OPERATING_MODE, CHANNEL_BUS_VOLTAGE_ENABLED, CHANNEL_SHUNT_VOLTAGE_ENABLED, CHANNEL_TIMESTAMP_ENABLED, CHANNEL_CURRENT_ENABLED, CHANNEL_POWER_ENABLED]}
 }
 
-CURRENT_UNDEFINED = 'current undefined'
-SHUNT_VOLTAGE_UNDEFINED = 'shunt voltage undefined'
-BUS_VOLTAGE_UNDEFINED = 'bus voltage undefined'
-POWER_UNDEFINED = 'power undefined'
-TIMESTAMP_UNDEFINED = 'time stamp undefined'
 CALIBRE_UNDEFINED = 'calibre undefined'
 BUFFER_LENGTH_UNDEFINED = ' buffer length undefined'
 AVERAGE_NUMBER_UNDEFINED = 'average number undefined'
@@ -63,7 +58,10 @@ SHUNT_VOLTAGE_INTEGRATION_TIME_UNDEFINED = 'shunt voltage integration time undef
 BUS_VOLTAGE_INTEGRATION_TIME_UNDEFINED = 'bus voltage integration time undefined'
 OPERATING_MODE_UNDEFINED = 'operating mode undefined'
 SAMPLING_PERIOD_UNDEFINE = 'sampling period undefined'
-REAL_SAMPLING_PERIOD_UNDEFINE = 'real sampling period undefined'
+SHUNT_VOLTAGE_OFFSET_UNDEFINE = 'shunt voltage offset undefine'
+CURRENT_OFFSET_UNDEFINE = 'current offset undefined'
+
+           
 
 CALIBRATION = 0x0847
 ###
@@ -112,11 +110,11 @@ class CurrentMonitor(threading.Thread):
         self.shunt_voltage_integration_time = None
         self.bus_voltage_integration_time = None
         self.operating_mode = None
-        self.channel_bus_voltage_enabled = None
-        self.channel_shunt_voltage_enabled = None
-        self.channel_timestamp_enabled = None
-        self.channel_current_enabled = None
-        self.channel_power_enabled = None
+        self.channel_bus_voltage_enabled = False
+        self.channel_shunt_voltage_enabled = False
+        self.channel_timestamp_enabled = False
+        self.channel_current_enabled = False
+        self.channel_power_enabled = False
 
         self.calibration = CALIBRATION
         self.shunt_voltage_offset = SHUNT_VOLTAGE_OFFSET
@@ -126,7 +124,6 @@ class CurrentMonitor(threading.Thread):
         self.bus_voltage_LSB = BUS_VOLTAGE_LSB
         self.power_LSB = None
         self.sampling_period = None
-        self.sampling_period_real = None
 
         self.current = None
         self.shunt_voltage = None
@@ -224,9 +221,7 @@ class CurrentMonitor(threading.Thread):
             #enable buffer 
             self.ina226.enable_buffer()
             buffer_ina226 = open(self.device_path, "rb")
-            
-            cnt = 0
-            prev_cnt = 0
+
             nBytes = 0
             unpackFormat = ""
             
@@ -266,12 +261,8 @@ class CurrentMonitor(threading.Thread):
                     if self.channel_shunt_voltage_enabled:
                         self.shunt_voltage.append((data_raw_list.pop()-self.shunt_voltage_offset)*self.shunt_voltage_LSB)
                     
-                    cnt += 1
-
                 if ((time.time()-t) >= 20):  #One update every 20 seconds
-                    self.sampling_period_real = (time.time() - t)/(cnt-prev_cnt)
                     t = time.time()
-                    prev_cnt = cnt
                     
                     dispatcher.send(
                         signal = m_common.CURRENT_MONITOR_UPDATE,
@@ -305,23 +296,17 @@ class CurrentMonitor(threading.Thread):
             'Shunt voltage integration time [s]': self.shunt_voltage_integration_time if self.shunt_voltage_integration_time else  SHUNT_VOLTAGE_INTEGRATION_TIME_UNDEFINED,
             'Bus voltage integration time [s]': self.bus_voltage_integration_time if self.bus_voltage_integration_time else BUS_VOLTAGE_INTEGRATION_TIME_UNDEFINED,
             'Operating Mode': self.operating_mode if self.operating_mode else OPERATING_MODE_UNDEFINED,
-            'Shunt voltage offset [V]': self.shunt_voltage_offset*self.shunt_voltage_LSB, 
-            'Current offset [A]':self.current_offset*self.current_LSB,  
+            'Shunt voltage offset [V]': self.shunt_voltage_offset*self.shunt_voltage_LSB if self.shunt_voltage_offset else SHUNT_VOLTAGE_OFFSET_UNDEFINE, 
+            'Current offset [A]':self.current_offset*self.current_LSB if self.current_offset and self.current_LSB else CURRENT_OFFSET_UNDEFINE,  
             'Sampling period [s]': self.sampling_period if self.sampling_period else SAMPLING_PERIOD_UNDEFINE,
-            'approximation of the real sampling period [s]': self.sampling_period_real if self.sampling_period_real else REAL_SAMPLING_PERIOD_UNDEFINE,
             'channel bus voltage enabled': self.channel_bus_voltage_enabled,
             'channel shunt voltage enabled': self.channel_shunt_voltage_enabled,
             'channel timestamp enabled': self.channel_timestamp_enabled,
             'channel current enabled': self.channel_current_enabled,
-            'channel power enabled': self.channel_power_enabled,
-            'Current': self.current if self.current else CURRENT_UNDEFINED,
-            'Shunt voltage': self.shunt_voltage if self.shunt_voltage else SHUNT_VOLTAGE_UNDEFINED,
-            'Bus voltage': self.bus_voltage if self.bus_voltage else BUS_VOLTAGE_UNDEFINED,
-            'Power': self.power if self.power else POWER_UNDEFINED,
-            'Time stamp': self.timestamp if self.timestamp else TIMESTAMP_UNDEFINED,
+            'channel power enabled': self.channel_power_enabled
             
             }
-        
+        ###WARNING: verifier que status fonctionne meme avant setup
         
     def start_proxy(self):
         if self.running:

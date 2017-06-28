@@ -1,0 +1,24 @@
+firmwares:
+    - id:           'openwsn'
+      file:         'openwsn_dagroot'
+      brief:        'OpenWSN firmware'
+
+schedule:
+    - time:             'origin'
+      action:           'load'
+      parameters:
+        firmware_id:        'openwsn'
+
+    - time:             'on-last-event-completion'
+      action:           'start'
+
+    - time:             '10min'
+      action:           'stop'
+icons:
+    - id:           'openwsn'
+      file:         'openwsn.png'
+      brief:        'openWSN icon'
+description:
+    - id:           'openwsn'
+      name:         'OpenWSN Firmware'
+      brief:        'OpenWSN Firmware description'

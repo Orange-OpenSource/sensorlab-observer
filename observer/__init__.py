@@ -9,4 +9,4 @@ Copyright 2015 Orange
 
 """
 
-__all__ = ['m_common','m_experiment' 'm_io', 'm_location', 'm_node', 'm_system', 'm_current_monitor']
+__all__ = ['m_common', 'm_experiment', 'm_io', 'm_location', 'm_node', 'm_system', 'm_current_monitor']
