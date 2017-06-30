@@ -710,7 +710,6 @@ class Node:
         self.power = power
         self.timestamp = timestamp
 
-        print(len(self.current))
 
         if self.experiment_state == EXPERIMENT_RUNNING\
                 and self.experiment_scheduler.state == m_experiment_scheduler.SCHEDULER_RUNNING:
