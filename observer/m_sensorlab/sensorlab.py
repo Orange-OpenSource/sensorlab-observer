@@ -26,6 +26,7 @@ SHUNT_VOLTAGE_PROPERTY_ID = 0x05
 BUS_VOLTAGE_PROPERTY_ID = 0x06
 CURRENT_PROPERTY_ID = 0x07
 POWER_PROPERTY_ID = 0x08
+TIMESTAMP_PROPERTY_ID = 0x09
 
 
 def sensorlab_header(node_id, event_id):
@@ -593,5 +594,7 @@ def format_property_value(property_value, data_type):
     if data_type == TYPE_INVALID:
         payload = property_value
     if data_type == TYPE_FLOAT_ARRAY:
-        payload = struct.pack('%sf' % len(property_value), *property_value) #unpack with: struct.unpack('%sf' %len(property_value),pack)     NB: len(property_value) = int(len(pack)/4)
+        payload = struct.pack('%sf' % len(property_value), *property_value) #unpack with: struct.unpack('%sf' %len(property_value),payload)     NB: len(property_value) = int(len(payload)/4)
+    if data_type == TYPE_DOUBLE_ARRAY:
+        payload = struct.pack('%sd' % len(property_value), *property_value) #unpack with: struct.unpack('%sd' %len(property_value),payload)     NB: len(property_value) = int(len(payload)/8)
     return payload

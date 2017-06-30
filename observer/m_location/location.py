@@ -88,7 +88,7 @@ class GPS(threading.Thread):
                     (self.gpsd.fix.latitude, self.gpsd.fix.longitude),
                     (self.last_reported_latitude, self.last_reported_longitude)
                 ).meters
-                self.need_update = distance > min(self.gpsd.fix.epx, self.gpsd.fix.epy)
+                self.need_update = distance > 0 #min(self.gpsd.fix.epx, self.gpsd.fix.epy)
                 self.state = GPS_ONLINE
                 self.latitude = self.gpsd.fix.latitude
                 self.longitude = self.gpsd.fix.longitude

@@ -250,20 +250,20 @@ class CurrentMonitor(threading.Thread):
                     data_raw = struct.unpack(unpackFormat,data) 
                     data_raw_list = [x for x in data_raw] #data_raw is a tuple. to use pop() method we need a list
                     
-                    if self.channel_timestamp_enabled: #WARNING:Timestamp in nanoseconds
-                        self.timestamp.append(data_raw_list.pop())
-                    if self.channel_current_enabled:
-                        self.current.append((data_raw_list.pop()-self.current_offset)*self.current_LSB)
-                    if self.channel_power_enabled:
-                        self.power.append(data_raw_list.pop()*self.power_LSB)
-                    if self.channel_bus_voltage_enabled:
+                    if self.channel_timestamp_enabled: #Timestamp in seconds
+                        self.timestamp.append(data_raw_list.pop()/1E9)
+                    if self.channel_current_enabled: #Current in mA
+                        self.current.append((data_raw_list.pop()-self.current_offset)*self.current_LSB*1E3)
+                    if self.channel_power_enabled:   #Power in mW
+                        self.power.append(data_raw_list.pop()*self.power_LSB*1E3)
+                    if self.channel_bus_voltage_enabled: #Bus voltage in V
                         self.bus_voltage.append(data_raw_list.pop()*self.bus_voltage_LSB)
-                    if self.channel_shunt_voltage_enabled:
-                        self.shunt_voltage.append((data_raw_list.pop()-self.shunt_voltage_offset)*self.shunt_voltage_LSB)
+                    if self.channel_shunt_voltage_enabled: #Shunt voltage in mV
+                        self.shunt_voltage.append((data_raw_list.pop()-self.shunt_voltage_offset)*self.shunt_voltage_LSB*1E3)
                     
-                if ((time.time()-t) >= 20):  #One update every 20 seconds
+                if ((time.time()-t) >= 20):  #One update every 20 seconds (Ok with every configuration - Worse case: 1 acquisition per 16 seconds)
                     t = time.time()
-                    
+                                        
                     dispatcher.send(
                         signal = m_common.CURRENT_MONITOR_UPDATE,
                         sender = self,
