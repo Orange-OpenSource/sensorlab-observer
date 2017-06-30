@@ -244,7 +244,7 @@ class CurrentMonitor(threading.Thread):
             t = time.time()
             while self.running:
                 
-                events = p.poll(int(self.sampling_period*1000*self.buffer_length))       #OK????    /!\ Tsampling >1??   
+                events = p.poll(int(self.sampling_period*1000*self.buffer_length))       #OK????    /!\ Tsampling >1??   ou 20Seconds?
                 for e in events:
                     data = buffer_ina226.read(nBytes)
                     data_raw = struct.unpack(unpackFormat,data) 

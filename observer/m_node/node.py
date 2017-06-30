@@ -710,6 +710,8 @@ class Node:
         self.power = power
         self.timestamp = timestamp
 
+        print(len(self.current))
+
         if self.experiment_state == EXPERIMENT_RUNNING\
                 and self.experiment_scheduler.state == m_experiment_scheduler.SCHEDULER_RUNNING:
             data = struct.pack("<BB", m_sensorlab.EVENT_NODE_PROPERTY_UPDATE, 5)
@@ -735,6 +737,11 @@ class Node:
                                                             self.timestamp)                                             
             timestamp_data = time.time()
             self._io_log(timestamp_data, data)
+            self.shunt_voltage = []
+            self.bus_voltage = []
+            self.current = []
+            self.power = []
+            self.timestamp = []
            
     def rest_get_node_command(self, command):
         # check that command exists

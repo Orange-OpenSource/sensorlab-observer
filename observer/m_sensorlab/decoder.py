@@ -205,11 +205,11 @@ def property_declaration_decode(buffer, json, offset, declarations):
 
 def property_reference_decode(buffer, json, offset, declarations):
     try:
-        decoded = block_decode("<BH", buffer, offset)
+        decoded = block_decode("<BI", buffer, offset)
         ((property_id, property_value_length), offset,) = decoded
     except struct.error:
         raise m_common.DecoderException(DECODER_BINARY.format(
-            ' '.join([hex(b)[2:] for b in buffer[offset:offset+struct.calcsize("<BH")]]))
+            ' '.join([hex(b)[2:] for b in buffer[offset:offset+struct.calcsize("<BI")]]))
         )
     
     if not declarations[property_id]:
@@ -249,6 +249,7 @@ def property_reference_decode(buffer, json, offset, declarations):
 
             property_value = struct.unpack('%sf' %int(property_value_length/4),buffer[offset:offset + property_value_length])
             offset += (property_value_length)
+
         ###
         except UnicodeDecodeError as _:
             raise m_common.DecoderException(
