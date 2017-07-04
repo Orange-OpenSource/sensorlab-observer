@@ -15,6 +15,7 @@ import time
 import threading
 import bottle
 import struct
+import subprocess
 from   select import poll, POLLIN
 from pydispatch import dispatcher
 from datetime import datetime
@@ -45,10 +46,11 @@ CHANNEL_SHUNT_VOLTAGE_ENABLED = 'channel_shunt_voltage_enabled'
 CHANNEL_TIMESTAMP_ENABLED = 'channel_timestamp_enabled'
 CHANNEL_CURRENT_ENABLED = 'channel_current_enabled'
 CHANNEL_POWER_ENABLED = 'channel_power_enabled'
+CHANNEL_USB_ENBALED = 'channel_usb_enabled'
 
 # mandatory configuration arguments
 REQUIRED_ARGUMENTS = {
-    m_common.COMMAND_SETUP: {'files': [], 'forms': [CALIBRE, BUFFER_LENGTH, AVERAGE_NUMBER, SHUNT_VOLTAGE_INTEGRATION_TIME, BUS_VOLTAGE_INTEGRATION_TIME, OPERATING_MODE, CHANNEL_BUS_VOLTAGE_ENABLED, CHANNEL_SHUNT_VOLTAGE_ENABLED, CHANNEL_TIMESTAMP_ENABLED, CHANNEL_CURRENT_ENABLED, CHANNEL_POWER_ENABLED]}
+    m_common.COMMAND_SETUP: {'files': [], 'forms': [CALIBRE, BUFFER_LENGTH, AVERAGE_NUMBER, SHUNT_VOLTAGE_INTEGRATION_TIME, BUS_VOLTAGE_INTEGRATION_TIME, OPERATING_MODE, CHANNEL_BUS_VOLTAGE_ENABLED, CHANNEL_SHUNT_VOLTAGE_ENABLED, CHANNEL_TIMESTAMP_ENABLED, CHANNEL_CURRENT_ENABLED, CHANNEL_POWER_ENABLED, CHANNEL_USB_ENBALED]}
 }
 
 CALIBRE_UNDEFINED = 'calibre undefined'
@@ -70,27 +72,23 @@ CURRENT_OFFSET = 3
 ###
 SHUNT_VOLTAGE_LSB= 0.0000025 #[V/bit]
 BUS_VOLTAGE_LSB = 0.00125    #[V/bit]
-DEVICE = '/sys/bus/i2c/devices/1-0040/iio:device0/'
+
+DEVICE_TERMINAL = '/sys/bus/i2c/devices/1-0040/iio:device0/'
+DEVICE_USB = '/sys/bus/i2c/devices/1-0045/iio:device0/'
 DEVICE_PATH = "/dev/iio:device0"
+
 
 # exception messages
 CURRENT_MEASUREMENT_ROUTINE_ALREADY_RUNNING = 'current measurement routine already running'
 #Other exception? exemple no channel enabled
 
-###
-def timestamp_to_date(timestamp_nano):
-    dt = datetime.fromtimestamp(timestamp_nano // 1000000000)
-    output = dt.strftime('%Y-%m-%d %H:%M:%S')
-    output += '.' + str(int(timestamp_nano % 1000000000)).zfill(9)
 
-    return output
-###
+def bash_command(cmd):
+    subprocess.Popen(['/bin/bash', '-c', cmd])
 
-###
 def start(self):
     self.threadlock = threading.Lock()
     threading.Thread(target=self.run)
-###
 
 class CurrentMonitor(threading.Thread):
     
@@ -101,9 +99,13 @@ class CurrentMonitor(threading.Thread):
         self.state = CURRENT_MONITOR_UNDEFINED
         self.reader_running = False
         self.reader_thread = None
-        self.ina226 = m_ina226.ina226(DEVICE)
+
+        #Channel USB or terminal
+        self.channel_usb_enabled = False
+        self.ina226 =  None
         self.device_path = DEVICE_PATH
- 
+                
+        #INA226 Configuration
         self.calibre = None
         self.buffer_length = None
         self.average_number = None
@@ -115,7 +117,6 @@ class CurrentMonitor(threading.Thread):
         self.channel_timestamp_enabled = False
         self.channel_current_enabled = False
         self.channel_power_enabled = False
-
         self.calibration = CALIBRATION
         self.shunt_voltage_offset = SHUNT_VOLTAGE_OFFSET
         self.current_offset = CURRENT_OFFSET
@@ -125,6 +126,7 @@ class CurrentMonitor(threading.Thread):
         self.power_LSB = None
         self.sampling_period = None
 
+        #Experiment variables
         self.current = None
         self.shunt_voltage = None
         self.bus_voltage = None
@@ -139,12 +141,37 @@ class CurrentMonitor(threading.Thread):
             m_common.COMMAND_STOP: self.stop,
         }
 
-    def setup(self,calibre,buffer_length,average_number,shunt_voltage_integration_time,bus_voltage_integration_time,operating_mode,channel_bus_voltage_enabled,channel_shunt_voltage_enabled,channel_timestamp_enabled,channel_current_enabled,channel_power_enabled):
+    def setup(self,calibre,buffer_length,average_number,shunt_voltage_integration_time,bus_voltage_integration_time,operating_mode,channel_bus_voltage_enabled,channel_shunt_voltage_enabled,channel_timestamp_enabled,channel_current_enabled,channel_power_enabled,channel_usb_enabled):
 		
         if self.running:
             self.stop()
        
         self.state = CURRENT_MONITOR_HALTED
+        
+        #Instantiate one of the two INA226 available depending on the measurement channel selected
+        self.channel_usb_enabled = bool(int(channel_usb_enabled))
+
+        #delete device in case they've been previously instanciated...
+
+        bash_command('echo 0x45 > /sys/bus/i2c/devices/i2c-1/delete_device') 
+        time.sleep(0.5) 
+        bash_command('echo 0x40 > /sys/bus/i2c/devices/i2c-1/delete_device')
+        time.sleep(0.5)
+        bash_command('rmmod ina226-i2c')
+
+        if self.channel_usb_enabled:
+            bash_command('modprobe -v ina226-i2c alert_pin_on_rpi2=20')  
+            time.sleep(0.5)
+            bash_command('echo ina226-i2c 0x45 > /sys/bus/i2c/devices/i2c-1/new_device')  
+            self.ina226 =  m_ina226.ina226(DEVICE_USB)
+        else:
+            bash_command('modprobe -v ina226-i2c alert_pin_on_rpi2=21')  
+            time.sleep(0.5)
+            bash_command('echo ina226-i2c 0x40 > /sys/bus/i2c/devices/i2c-1/new_device')
+            self.ina226 =  m_ina226.ina226(DEVICE_TERMINAL)
+
+        time.sleep(0.5)
+        
         self.calibre = float(calibre)
         self.buffer_length = int(buffer_length)
         self.average_number = int(average_number)
@@ -178,6 +205,7 @@ class CurrentMonitor(threading.Thread):
         
         #disable buffer in case it is enabled
         self.ina226.disable_buffer()
+        
         #configure ina226
         self.ina226.set_calibration(self.calibration)
         self.ina226.set_buffer_length(self.buffer_length)
@@ -185,6 +213,7 @@ class CurrentMonitor(threading.Thread):
         self.ina226.set_shunt_voltage_integration_time(self.shunt_voltage_integration_time)
         self.ina226.set_bus_voltage_integration_time(self.bus_voltage_integration_time)
         self.ina226.set_operating_mode(self.operating_mode)
+        
         #Enabling/disabling channels
         if self.channel_bus_voltage_enabled:
             self.ina226.enable_channel_bus_voltage()
@@ -208,6 +237,9 @@ class CurrentMonitor(threading.Thread):
             self.ina226.disable_channel_power()
 
     def run(self):   
+
+        #Send a start event to the database???
+
         self.running = True
         self.state = CURRENT_MONITOR_RUNNING
 
@@ -216,10 +248,12 @@ class CurrentMonitor(threading.Thread):
         self.bus_voltage = []
         self.power = []
         self.timestamp = []
+
         
         try:
             #enable buffer 
             self.ina226.enable_buffer()
+
             buffer_ina226 = open(self.device_path, "rb")
 
             nBytes = 0
@@ -242,10 +276,17 @@ class CurrentMonitor(threading.Thread):
             p.register(buffer_ina226.fileno(), POLLIN)
 
             t = time.time()
+
+            if self.sampling_period >= 1:
+                t_update = self.sampling_period
+            else:
+                t_update = 1
+
             while self.running:
-                
-                events = p.poll(int(self.sampling_period*1000*self.buffer_length))       #OK????    /!\ Tsampling >1??   ou 20Seconds?
+
+                events = p.poll(int(self.sampling_period*1000*self.buffer_length))       #OK????    /!\ Tsampling >1??   
                 for e in events:
+
                     data = buffer_ina226.read(nBytes)
                     data_raw = struct.unpack(unpackFormat,data) 
                     data_raw_list = [x for x in data_raw] #data_raw is a tuple. to use pop() method we need a list
@@ -261,7 +302,9 @@ class CurrentMonitor(threading.Thread):
                     if self.channel_shunt_voltage_enabled: #Shunt voltage in mV
                         self.shunt_voltage.append((data_raw_list.pop()-self.shunt_voltage_offset)*self.shunt_voltage_LSB*1E3)
                     
-                if ((time.time()-t) >= 20):  #One update every 20 seconds (Ok with every configuration - Worse case: 1 acquisition per 16 seconds)
+                    #Filtrage data???
+                    
+                if ((time.time()-t) >= t_update):  #One update every "t_update" seconds 
                     t = time.time()
                                         
                     dispatcher.send(
@@ -303,7 +346,9 @@ class CurrentMonitor(threading.Thread):
             'channel shunt voltage enabled': self.channel_shunt_voltage_enabled,
             'channel timestamp enabled': self.channel_timestamp_enabled,
             'channel current enabled': self.channel_current_enabled,
-            'channel power enabled': self.channel_power_enabled
+            'channel power enabled': self.channel_power_enabled,
+            'channel USB enabled': self.channel_usb_enabled
+        
             
             }
         ###WARNING: verifier que status fonctionne meme avant setup
@@ -326,6 +371,16 @@ class CurrentMonitor(threading.Thread):
         self.timestamp = []
         self.state = CURRENT_MONITOR_HALTED
         self.ina226.disable_buffer()
+
+        #delete device...
+        if self.channel_usb_enabled:
+            bash_command('echo 0x45 > /sys/bus/i2c/devices/i2c-1/delete_device')  
+        else:
+            bash_command('echo 0x40 > /sys/bus/i2c/devices/i2c-1/delete_device')
+        time.sleep(0.5)
+        bash_command('rmmod ina226-i2c')
+
+        #Probleme: oblige de relancer un setup avant un start... (?)
 
     def rest_get_command(self, command):
         # check that command exists

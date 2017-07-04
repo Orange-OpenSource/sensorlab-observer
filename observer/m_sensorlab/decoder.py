@@ -202,82 +202,6 @@ def property_declaration_decode(buffer, json, offset, declarations):
 
     return offset
 
-
-########################## 
-def property_reference_decode_node_update(buffer, json, offset, declarations):
-    try:
-        decoded = block_decode("<BI", buffer, offset)
-        ((property_id, property_value_length), offset,) = decoded
-    except struct.error:
-        raise m_common.DecoderException(DECODER_BINARY.format(
-            ' '.join([hex(b)[2:] for b in buffer[offset:offset+struct.calcsize("<BI")]]))
-        )
-    
-    if not declarations[property_id]:
-        # raise exception
-        raise m_common.DecoderException(UNKNOWN_PROPERTY_ID.format(property_id))
-
-    property_name = declarations[property_id]['title']
-    prefix = declarations[property_id]['prefix']
-    unit = declarations[property_id]['unit']
-    data_type = declarations[property_id]['type']
-    data_format = declarations[property_id]['format']
-
-    if data_format:
-        try:
-            data_decoded = block_decode(data_format, buffer, offset)
-            ((property_value,), offset,) = data_decoded
-        except struct.error:
-            raise m_common.DecoderException(DECODER_BINARY.format(
-                ' '.join([hex(b)[2:] for b in buffer[offset:offset + struct.calcsize(data_format)]]))
-            )
-
-    elif data_type is 'asciiArray':
-        try:
-            property_value = buffer[offset:offset + property_value_length].decode('ascii')
-            offset += property_value_length
-        except UnicodeDecodeError as _:
-            raise m_common.DecoderException(
-                DECODER_ASCII_ERROR.format(buffer[offset:offset + property_value_length])
-            )
-
-    elif data_type is 'byteArray':
-        property_value = ' '.join([hex(b)[2:] for b in buffer[offset:offset + property_value_length]])
-        offset += property_value_length
-    
-    elif data_type is 'floatArray':
-        try:
-
-            property_value = struct.unpack('%sf' %int(property_value_length/4),buffer[offset:offset + property_value_length])
-            offset += (property_value_length)
-
-        ###
-        except UnicodeDecodeError as _:
-            raise m_common.DecoderException(
-                DECODER_FLOAT_ARRAY_ERROR.format(buffer[offset:offset + property_value_length])
-        ###
-            )
-    elif data_type is 'doubleArray':
-        try:
-
-            property_value = struct.unpack('%sd' %int(property_value_length/8),buffer[offset:offset + property_value_length])
-            offset += (property_value_length)
-        ###
-        except UnicodeDecodeError as _:
-            raise m_common.DecoderException(
-                DECODER_DOUBLE_ARRAY_ERROR.format(buffer[offset:offset + property_value_length])
-        ###
-            )
-
-    else:  # 'invalid'
-        property_value = '!' + ' '.join([hex(b)[2:] for b in buffer[offset:offset + property_value_length]]) + '!'
-        offset += property_value_length
-
-    json[property_name] = {'value': property_value, 'prefix': prefix, 'unit': unit}
-
-    return offset
-
-######################
 def property_reference_decode(buffer, json, offset, declarations):
     try:
         decoded = block_decode("<BH", buffer, offset)
@@ -394,7 +318,7 @@ class Decoder:
         json['properties'] = {}
 
         for _ in repeat(None, properties_count):
-            offset = property_reference_decode_node_update(buffer, json['properties'], offset, self.declarations['node'])
+            offset = property_reference_decode(buffer, json['properties'], offset, self.declarations['node'])
         return json
 
     def node_remove_decode(self, _, json):

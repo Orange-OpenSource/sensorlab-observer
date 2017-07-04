@@ -276,7 +276,7 @@ def property_reference_payload(property_id, data_type, property_value_length, pr
     The PropertyReferencePayload structure is:
         - property_id           :  1 byte field. Property ID.
         - data_type             :  1 byte field. type of the value.
-        - property_value_length :  2 byte field. length of the property value  /!\ Changed from 1 to 2 to support length of float list from current monitor (which can exceed a siez of 65535 elements)
+        - property_value_length :  1 byte field. length of the property value
         - property_value        : property_value_length byte(s) field. Property value.
 
     Args:
@@ -288,7 +288,7 @@ def property_reference_payload(property_id, data_type, property_value_length, pr
     Returns:
         bytes: payload content
     """
-    payload = struct.pack("<BI", property_id, property_value_length)
+    payload = struct.pack("<BH", property_id, property_value_length)
     payload += format_property_value(property_value, data_type)
     return payload
 
