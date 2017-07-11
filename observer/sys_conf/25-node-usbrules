@@ -1,0 +1,15 @@
+# udev rules for sensorlab
+#
+# This file is Copyright (c) 2015 by Orange.
+#
+# Nodes don't have their own USB device class.  They're serial-over-USB
+# devices, so what you see is actually the ID of the serial-over-USB chip.
+#
+#   /lib/udev/rules.d/25-node-usb.rules
+#
+# Setting the link in /lib/udev/rules.d activates the rule and determines
+# when to run it on boot (similar to init.d processing).
+#
+# Matching rules for the IoTLab-M3 node using the Future Technology Devices International, Ltd FT2232C Dual USB-UART/FIFO IC
+SUBSYSTEMS=="usb", ENV{.LOCAL_PORT_NUM}="$attr{bInterfaceNumber}"
+SUBSYSTEM=="tty", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6010", SYMLINK+="iotlabM3-$env{.LOCAL_PORT_NUM}"

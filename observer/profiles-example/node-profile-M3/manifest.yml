@@ -1,0 +1,82 @@
+controller:
+    commands:
+        load:      >
+                        openocd -l openocd.log
+                        -f <#board_cfg_file>
+                        -f "target/stm32f1x.cfg"
+                        -c "init"
+                        -c "targets"
+                        -c "reset init"
+                        -c "flash write_image erase <#firmware>"
+                        -c "verify_image <#firmware>"
+                        -c "exit"
+
+        init:       >
+                        openocd -l openocd.log
+                        -f <#board_cfg_file>
+                        -f "target/stm32f1x.cfg"
+                        -c "init"
+                        -c "targets"
+                        -c "reset init"
+                        -c "exit"
+
+        start:      >
+                        openocd -l openocd.log
+                        -f <#board_cfg_file>
+                        -f "target/stm32f1x.cfg"
+                        -c "init"
+                        -c "targets"
+                        -c "reset run"
+                        -c "exit"
+
+
+        stop:       >
+                        openocd -l openocd.log
+                        -f <#board_cfg_file>
+                        -f "target/stm32f1x.cfg"
+                        -c "init"
+                        -c "targets"
+                        -c "reset halt"
+                        -c "exit"
+
+        reset:      >
+                        openocd -l openocd.log
+                        -f <#board_cfg_file>
+                        -f "target/stm32f1x.cfg"
+                        -c "init"
+                        -c "targets"
+                        -c "reset halt"
+                        -c "reset init"
+                        -c "exit"
+
+    executables:
+
+    configuration_files:
+          - id:           'board_cfg_file'
+            file:         'iotlab-m3-usb.cfg'
+            brief:        'IoTLab M3 board configuration'
+
+          - id:           'microcontroller_cfg_file'
+            file:         'stm32f1x.cfg'
+            brief:        'STM32F1X microcontroller configuration'
+
+serial:
+    port:             '/dev/iotlabM3-01'
+    baudrate:         500000
+    parity:           PARITY_NONE
+    stopbits:         STOPBITS_ONE
+    bytesize:         EIGHTBITS
+    rtscts:           false
+    xonxoff:          false
+    timeout:          0.250 #converted to None by PyYAML, blocking read operation
+    module:           'hdlc'
+
+icons:
+    - id:           'iotlabm3'
+      file:         'iotlabM3.png'
+      brief:        'IoTLabM3 image'
+
+description:
+    - id:           'iotlabm3'
+      name:         'Iotlab M3 node'
+      brief:        'Iotlab M3 description'

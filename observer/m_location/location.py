@@ -13,9 +13,14 @@ from .. import m_common
 from . import m_gpsd
 
 from pydispatch import dispatcher
+from geopy.distance import vincenty
 
 import threading
 import bottle
+import logging
+
+# module logger
+logger = logging.getLogger(__name__)
 
 # experiment states
 GPS_UNDEFINED = 0
@@ -57,8 +62,12 @@ class GPS(threading.Thread):
         self.error_estimate_longitude = None
         self.error_estimate_altitude = None
         self.satellites = []
+        self.need_update = True
+        self.last_reported_latitude = None
+        self.last_reported_longitude = None
+        self.last_reported_altitude = None
         self.start()
-        # link node_commands to instance methods
+        # link commands to instance methods
         self.commands = {
             m_common.COMMAND_STATUS: self.status,
             m_common.COMMAND_SETUP: self.setup,
@@ -74,6 +83,12 @@ class GPS(threading.Thread):
             self.gpsd.next()
             # update information
             if self.gpsd.fix.mode == m_gpsd.MODE_3D:
+
+                distance = vincenty(
+                    (self.gpsd.fix.latitude, self.gpsd.fix.longitude),
+                    (self.last_reported_latitude, self.last_reported_longitude)
+                ).meters
+                self.need_update = distance > 0 #min(self.gpsd.fix.epx, self.gpsd.fix.epy)
                 self.state = GPS_ONLINE
                 self.latitude = self.gpsd.fix.latitude
                 self.longitude = self.gpsd.fix.longitude
@@ -83,24 +98,30 @@ class GPS(threading.Thread):
                 self.error_estimate_latitude = self.gpsd.fix.epy
                 self.error_estimate_altitude = self.gpsd.fix.epv
                 self.satellites = self.gpsd.satellites
+                if self.need_update is True:
+                    # logger.info('location changed to: (lat:{0}, lon:{1})'.format(self.latitude, self.longitude))
+                    dispatcher.send(
+                        signal=m_common.LOCATION_UPDATE,
+                        sender=self,
+                        latitude=self.latitude,
+                        longitude=self.longitude,
+                        altitude=self.altitude,
+                        speed=self.speed,
+                        error_estimate_longitude=self.error_estimate_longitude,
+                        error_estimate_latitude=self.error_estimate_latitude,
+                        error_estimate_altitude=self.error_estimate_altitude
+                    )
+                    self.last_reported_latitude = self.latitude
+                    self.last_reported_longitude = self.longitude
+                    self.last_reported_altitude = self.altitude
 
-                dispatcher.send(
-                    signal=m_common.LOCATION_UPDATE,
-                    sender=self,
-                    latitude=self.latitude,
-                    longitude=self.longitude,
-                    altitude=self.altitude,
-                    speed=self.speed,
-                    error_estimate_longitude=self.error_estimate_longitude,
-                    error_estimate_latitude=self.error_estimate_latitude,
-                    error_estimate_altitude=self.error_estimate_altitude
-                )
             elif self.gpsd.fix.mode == m_gpsd.MODE_NO_FIX:
                 self.state = GPS_OFFLINE
                 self.satellites = self.gpsd.satellites
 
     def status(self):
         return {
+            'state': GPS_STATES[self.state],
             'latitude': self.latitude if self.latitude else COORDINATE_UNDEFINED,
             'longitude': self.longitude if self.longitude else COORDINATE_UNDEFINED,
             'altitude': self.altitude if self.altitude else COORDINATE_UNDEFINED,
@@ -117,6 +138,7 @@ class GPS(threading.Thread):
         self.state = GPS_OFFLINE
         self.latitude = latitude
         self.longitude = longitude
+        return self.status()
 
     def start_proxy(self):
         if self.running:
@@ -140,17 +162,17 @@ class GPS(threading.Thread):
     def rest_get_command(self, command):
         # check that command exists
         if command not in GET_COMMANDS:
-            bottle.response.node_status = m_common.REST_REQUEST_ERROR
+            bottle.response.status = m_common.REST_REQUEST_ERROR
             return m_common.ERROR_COMMAND_UNKNOWN.format(command + '(GET)')
         # issue the command and return
         self.commands[command]()
-        bottle.response.node_status = m_common.REST_REQUEST_FULFILLED
+        bottle.response.status = m_common.REST_REQUEST_FULFILLED
         return self.status()
 
     def rest_post_command(self, command):
         # check that command exists
         if command not in POST_COMMANDS:
-            bottle.response.node_status = m_common.REST_REQUEST_ERROR
+            bottle.response.status = m_common.REST_REQUEST_ERROR
             return m_common.ERROR_COMMAND_UNKNOWN.format(command + '(POST)')
         # node_load arguments
         arguments = {}
@@ -161,14 +183,13 @@ class GPS(threading.Thread):
         # check that all arguments have been filled
         if any(value is None for argument, value in arguments.items()):
             missing_arguments = [argument for argument in arguments.keys() if arguments[argument] is None]
-            bottle.response.node_status = m_common.REST_REQUEST_ERROR
+            bottle.response.status = m_common.REST_REQUEST_ERROR
             return m_common.ERROR_MISSING_ARGUMENT_IN_ARCHIVE.format(missing_arguments)
             # issue the command
         try:
-            self.commands[command](**arguments)
-            bottle.response.node_status = m_common.REST_REQUEST_FULFILLED
-            # return the node node_status
-            return self.status()
+            bottle.response.status = m_common.REST_REQUEST_FULFILLED
+            return self.commands[command](**arguments)
         except m_common.LocationException as e:
-            bottle.response.node_status = m_common.REST_REQUEST_ERROR
+            logger.error('command {0} error: '.format(command, e.message))
+            bottle.response.status = m_common.REST_REQUEST_ERROR
             return m_common.ERROR_CONFIGURATION_FAIL.format(e.message)

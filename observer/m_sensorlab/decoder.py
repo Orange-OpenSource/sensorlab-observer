@@ -44,7 +44,10 @@ PROPERTIES = {
     0x0A: {'title': 'double', 'format': 'd'},
     0x0B: {'title': 'asciiArray', 'format': None},
     0x0C: {'title': 'byteArray', 'format': None},
-    0x0D: {'title': 'invalid', 'format': None}
+    0x0D: {'title': 'invalid', 'format': None},
+    0x0E: {'title': 'floatArray', 'format': None},
+    0x0F: {'title': 'doubleArray', 'format': None}
+
 }
 
 PREFIXES = {
@@ -113,6 +116,11 @@ UNKNOWN_LINK_ID = "unknown link ID: {0} at entity {1}"
 UNKNOWN_FRAME_ID = "unknown frame ID: {0} at entity {1}"
 UNKNOWN_FRAME_ENTITY_ID = "unknown entity ID: {0} for frame ID {1}"
 
+DECODER_BINARY = "binary format invalid in: {0}"
+DECODER_ASCII_ERROR = "non-ASCII character in: {0}"
+DECODER_FLOAT_ARRAY_ERROR = "invalid float array format in: {0}"
+DECODER_DOUBLE_ARRAY_ERROR = "invalid double array format in: {0}"
+
 
 def block_decode(block_format, buffer, offset=0):
     size = struct.calcsize(block_format)
@@ -123,23 +131,65 @@ def block_decode(block_format, buffer, offset=0):
 
 
 def property_declaration_decode(buffer, json, offset, declarations):
-    decoded = block_decode("<BBBBBH", buffer, offset)
-    ((property_id, prefix, unit, data_type, property_name_length, property_value_length), offset,) = decoded
-    property_name = buffer[offset:offset + property_name_length].decode('ascii')
-    offset += property_name_length
+    try:
+        decoded = block_decode("<BBBBBH", buffer, offset)
+        ((property_id, prefix, unit, data_type, property_name_length, property_value_length), offset,) = decoded
+        property_name = buffer[offset:offset + property_name_length].decode('ascii')
+        offset += property_name_length
+    except struct.error:
+        raise m_common.DecoderException(DECODER_BINARY.format(
+            ' '.join([hex(b)[2:] for b in buffer[offset:offset+struct.calcsize("<BBBBBH")]]))
+        )
+    except UnicodeDecodeError:
+        raise m_common.DecoderException(DECODER_ASCII_ERROR.format(buffer[offset:offset + property_name_length]))
 
     if PROPERTIES[data_type]['format']:
-        data_decoded = block_decode(PROPERTIES[data_type]['format'], buffer, offset)
-        ((property_value,), offset) = data_decoded
+        try:
+            data_decoded = block_decode(PROPERTIES[data_type]['format'], buffer, offset)
+            ((property_value,), offset) = data_decoded
+        except struct.error:
+            raise m_common.DecoderException(DECODER_BINARY.format(
+                ' '.join([hex(b)[2:] for b in buffer[offset:struct.calcsize(PROPERTIES[data_type]['format'])]]))
+            )
 
     elif PROPERTIES[data_type]['title'] is 'asciiArray':
-        property_value = buffer[offset:offset + property_value_length].decode('ascii')
-        offset += property_value_length
+        try:
+            property_value = buffer[offset:offset + property_value_length].decode('ascii')
+            offset += property_value_length
+        except UnicodeDecodeError as _:
+            raise m_common.DecoderException(
+                DECODER_ASCII_ERROR.format(buffer[offset:offset + property_value_length])
+            )
 
     elif PROPERTIES[data_type]['title'] is 'byteArray':
         property_value = ' '.join([hex(b)[2:] for b in buffer[offset:offset + property_value_length]])
         offset += property_value_length
+    
+    ###
+    elif PROPERTIES[data_type]['title'] is 'floatArray':
+        try:
 
+            property_value = struct.unpack('%sf' %int(property_value_length/4),buffer[offset:offset + property_value_length])
+            offset += (property_value_length)
+        ###
+        except UnicodeDecodeError as _:
+            raise m_common.DecoderException(
+                DECODER_FLOAT_ARRAY_ERROR.format(buffer[offset:offset + property_value_length])
+            )
+        ###
+
+    elif PROPERTIES[data_type]['title'] is 'doubleArray':
+        try:
+
+            property_value = struct.unpack('%sd' %int(property_value_length/8),buffer[offset:offset + property_value_length])
+            offset += (property_value_length)
+        ###
+        except UnicodeDecodeError as _:
+            raise m_common.DecoderException(
+                DECODER_DOUBLE_ARRAY_ERROR.format(buffer[offset:offset + property_value_length])
+        ###
+            )
+       
     else:  # 'invalid'
         property_value = '!' + ' '.join([hex(b)[2:] for b in buffer[offset:offset + property_value_length]]) + '!'
         offset += property_value_length
@@ -152,11 +202,15 @@ def property_declaration_decode(buffer, json, offset, declarations):
 
     return offset
 
-
 def property_reference_decode(buffer, json, offset, declarations):
-    decoded = block_decode("<BH", buffer, offset)
-    ((property_id, property_value_length), offset,) = decoded
-
+    try:
+        decoded = block_decode("<BH", buffer, offset)
+        ((property_id, property_value_length), offset,) = decoded
+    except struct.error:
+        raise m_common.DecoderException(DECODER_BINARY.format(
+            ' '.join([hex(b)[2:] for b in buffer[offset:offset+struct.calcsize("<BH")]]))
+        )
+    
     if not declarations[property_id]:
         # raise exception
         raise m_common.DecoderException(UNKNOWN_PROPERTY_ID.format(property_id))
@@ -168,16 +222,50 @@ def property_reference_decode(buffer, json, offset, declarations):
     data_format = declarations[property_id]['format']
 
     if data_format:
-        data_decoded = block_decode(data_format, buffer, offset)
-        ((property_value,), offset,) = data_decoded
+        try:
+            data_decoded = block_decode(data_format, buffer, offset)
+            ((property_value,), offset,) = data_decoded
+        except struct.error:
+            raise m_common.DecoderException(DECODER_BINARY.format(
+                ' '.join([hex(b)[2:] for b in buffer[offset:offset + struct.calcsize(data_format)]]))
+            )
 
     elif data_type is 'asciiArray':
-        property_value = buffer[offset:offset + property_value_length].decode('ascii')
-        offset += property_value_length
+        try:
+            property_value = buffer[offset:offset + property_value_length].decode('ascii')
+            offset += property_value_length
+        except UnicodeDecodeError as _:
+            raise m_common.DecoderException(
+                DECODER_ASCII_ERROR.format(buffer[offset:offset + property_value_length])
+            )
 
     elif data_type is 'byteArray':
         property_value = ' '.join([hex(b)[2:] for b in buffer[offset:offset + property_value_length]])
         offset += property_value_length
+    
+    elif data_type is 'floatArray':
+        try:
+
+            property_value = struct.unpack('%sf' %int(property_value_length/4),buffer[offset:offset + property_value_length])
+            offset += (property_value_length)
+
+        ###
+        except UnicodeDecodeError as _:
+            raise m_common.DecoderException(
+                DECODER_FLOAT_ARRAY_ERROR.format(buffer[offset:offset + property_value_length])
+        ###
+            )
+    elif data_type is 'doubleArray':
+        try:
+
+            property_value = struct.unpack('%sd' %int(property_value_length/8),buffer[offset:offset + property_value_length])
+            offset += (property_value_length)
+        ###
+        except UnicodeDecodeError as _:
+            raise m_common.DecoderException(
+                DECODER_DOUBLE_ARRAY_ERROR.format(buffer[offset:offset + property_value_length])
+        ###
+            )
 
     else:  # 'invalid'
         property_value = '!' + ' '.join([hex(b)[2:] for b in buffer[offset:offset + property_value_length]]) + '!'
@@ -186,12 +274,17 @@ def property_reference_decode(buffer, json, offset, declarations):
     json[property_name] = {'value': property_value, 'prefix': prefix, 'unit': unit}
 
     return offset
-
-
+   
 class Decoder:
     def __init__(self):
         self.declarations = {
-            'node': {},
+            'node': {
+                    5:{'unit': UNITS[0x10], 'type': 'floatArray', 'prefix': PREFIXES[0x0D], 'title': 'Shunt voltage', 'format': None},
+                    6: {'unit': UNITS[0x10], 'type': 'floatArray', 'prefix': '', 'title': 'Bus voltage', 'format': None},
+                    7: {'unit': UNITS[0x04], 'type': 'floatArray', 'prefix': PREFIXES[0x0D], 'title': 'Current', 'format': None},
+                    8: {'unit': UNITS[0x0E], 'type': 'floatArray', 'prefix': PREFIXES[0x0D], 'title': 'Power', 'format': None},
+                    9: {'unit': UNITS[0x03], 'type': 'doubleArray', 'prefix': '', 'title': 'Timestamp', 'format': None}
+                    },
             'entity': {},
             'frame': {}
         }
@@ -223,6 +316,7 @@ class Decoder:
         ((properties_count,), offset,) = block_decode("<B", buffer, 0)
 
         json['properties'] = {}
+
         for _ in repeat(None, properties_count):
             offset = property_reference_decode(buffer, json['properties'], offset, self.declarations['node'])
         return json
@@ -424,6 +518,11 @@ class Decoder:
             offset = property_declaration_decode(buffer, json['properties'], offset,
                                                  self.declarations['frame'][frame_id][entity_id])
 
+        # hack for coverage study
+        import requests
+        location_status = requests.get('http://localhost:5555/location/status').json()
+        json['properties']['latitude'] = {'value': location_status['latitude'], 'prefix': '', 'unit': ''}
+        json['properties']['longitude'] = {'value': location_status['longitude'], 'prefix': '', 'unit': ''}
         return json
 
     def frame_property_add_decode(self, buffer, json):
