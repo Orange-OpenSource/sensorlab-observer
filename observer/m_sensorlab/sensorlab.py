@@ -22,6 +22,12 @@ LATITUDE_PROPERTY_ID = 0x02
 LONGITUDE_PROPERTY_ID = 0x03
 ALTITUDE_PROPERTY_ID = 0x04
 
+SHUNT_VOLTAGE_PROPERTY_ID = 0x05
+BUS_VOLTAGE_PROPERTY_ID = 0x06
+CURRENT_PROPERTY_ID = 0x07
+POWER_PROPERTY_ID = 0x08
+TIMESTAMP_PROPERTY_ID = 0x09
+
 
 def sensorlab_header(node_id, event_id):
     """
@@ -270,7 +276,7 @@ def property_reference_payload(property_id, data_type, property_value_length, pr
     The PropertyReferencePayload structure is:
         - property_id           :  1 byte field. Property ID.
         - data_type             :  1 byte field. type of the value.
-        - property_value_length :  1 byte field. length if the property value
+        - property_value_length :  1 byte field. length of the property value
         - property_value        : property_value_length byte(s) field. Property value.
 
     Args:
@@ -587,4 +593,8 @@ def format_property_value(property_value, data_type):
         payload = property_value
     if data_type == TYPE_INVALID:
         payload = property_value
+    if data_type == TYPE_FLOAT_ARRAY:
+        payload = struct.pack('%sf' % len(property_value), *property_value) #unpack with: struct.unpack('%sf' %len(property_value),payload)     NB: len(property_value) = int(len(payload)/4)
+    if data_type == TYPE_DOUBLE_ARRAY:
+        payload = struct.pack('%sd' % len(property_value), *property_value) #unpack with: struct.unpack('%sd' %len(property_value),payload)     NB: len(property_value) = int(len(payload)/8)
     return payload

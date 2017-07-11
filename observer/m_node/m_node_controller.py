@@ -8,6 +8,7 @@ Copyright 2015 Orange
 
 """
 import os
+import subprocess
 
 from ..m_common import m_common
 
@@ -54,7 +55,8 @@ class Controller:
     def load(self, firmware):
         self.state = CONTROLLER_BUSY
         load_command = self.commands['load'].replace("<#firmware>", firmware)
-        return_code = os.system(load_command)
+        with open(os.devnull, 'w') as devnull:
+            return_code = subprocess.call(load_command, shell=True, stdout=devnull, stderr=devnull)
         if return_code != 0:
             self.state = CONTROLLER_UNDEFINED
             raise m_common.NodeControllerCommandException(m_common.ERROR_COMMAND_FAILED.format('load', return_code))
@@ -63,7 +65,8 @@ class Controller:
 
     def init(self):
         self.state = CONTROLLER_BUSY
-        return_code = os.system(self.commands['init'])
+        with open(os.devnull, 'w') as devnull:
+            return_code = subprocess.call(self.commands['init'], shell=True, stdout=devnull, stderr=devnull)
         if return_code != 0:
             self.state = CONTROLLER_UNDEFINED
             raise m_common.NodeControllerCommandException(m_common.ERROR_COMMAND_FAILED.format('init', return_code))
@@ -72,7 +75,8 @@ class Controller:
 
     def start(self):
         self.state = CONTROLLER_BUSY
-        return_code = os.system(self.commands['start'])
+        with open(os.devnull, 'w') as devnull:
+            return_code = subprocess.call(self.commands['start'], shell=True, stdout=devnull, stderr=devnull)
         if return_code != 0:
             self.state = CONTROLLER_UNDEFINED
             raise m_common.NodeControllerCommandException(m_common.ERROR_COMMAND_FAILED.format('start', return_code))
@@ -81,7 +85,8 @@ class Controller:
 
     def stop(self):
         self.state = CONTROLLER_BUSY
-        return_code = os.system(self.commands['stop'])
+        with open(os.devnull, 'w') as devnull:
+            return_code = subprocess.call(self.commands['stop'], shell=True, stdout=devnull, stderr=devnull)
         if return_code != 0:
             self.state = CONTROLLER_UNDEFINED
             raise m_common.NodeControllerCommandException(m_common.ERROR_COMMAND_FAILED.format('stop', return_code))
@@ -90,7 +95,8 @@ class Controller:
 
     def reset(self):
         self.state = CONTROLLER_BUSY
-        return_code = os.system(self.commands['reset'])
+        with open(os.devnull, 'w') as devnull:
+            return_code = subprocess.call(self.commands['reset'], shell=True, stdout=devnull, stderr=devnull)
         if return_code != 0:
             self.state = CONTROLLER_UNDEFINED
             raise m_common.NodeControllerCommandException(m_common.ERROR_COMMAND_FAILED.format('reset', return_code))

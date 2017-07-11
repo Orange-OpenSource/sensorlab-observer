@@ -168,7 +168,7 @@ class Loader:
                 eid = executable['id']
                 efile = executable['file']
                 executables_dir = os.path.join(self.temp_directory, CONTROLLER_EXECUTABLES_SUBDIR)
-                for cmd_name, cmd in self.manifest['controller']['commands']:
+                for cmd_name, cmd in self.manifest['controller']['commands'].items():
                     self.manifest['controller']['commands'][cmd_name] = \
                         cmd.replace('<!{0}>'.format(eid), os.path.join(executables_dir, efile))
 

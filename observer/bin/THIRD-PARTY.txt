@@ -1,0 +1,9 @@
+Legal Information
+Observer - version 1.0
+Copyright © 2015 Orange – All rights reserved
+
+Third Party Software
+GPSD - version 3.15
+Copyright @ 1997 - 2005 Eric S. Raymond
+
+GPSD is distributed under the terms and conditions of the BSD License

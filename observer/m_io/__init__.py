@@ -8,5 +8,5 @@ Copyright 2015 Orange
 
 
 """
-from .m_io import *
+from .io import *
 

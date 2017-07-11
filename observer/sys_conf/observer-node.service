@@ -1,0 +1,10 @@
+[Unit]
+Description=Node Abstraction Layer Daemon
+After=network.target
+
+[Service]
+Environment="PYTHONPATH=/opt/observer/:${PYTHONPATH}"
+ExecStart=/usr/bin/python -m observer
+
+[Install]
+WantedBy=multi-user.target

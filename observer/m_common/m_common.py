@@ -9,7 +9,7 @@ Copyright 2015 Orange
 """
 
 # version number
-VERSION = '1.3.1'
+VERSION = '1.3.4e'
 
 # configuration persistence directory
 PERSISTENCE_DIR = '/var/cache/sensorlab/'
@@ -26,9 +26,9 @@ COMMAND_START = 'start'
 COMMAND_STOP = 'stop'
 COMMAND_RESET = 'reset'
 COMMAND_SEND = 'send'
-
 COMMAND_VERSION = 'version'
 COMMAND_SYNC = 'synchronization'
+COMMAND_LOG = 'log'
 
 # REST node_commands return codes
 REST_REQUEST_FULFILLED = 200
@@ -46,6 +46,15 @@ IO_RECV = 'io_recv'
 
 # Location update signals
 LOCATION_UPDATE = 'location_update'
+##################
+
+# Current monitor update signals
+CURRENT_MONITOR_UPDATE = 'current_monitor_update'
+#############
+
+# I/O MongoDB
+IO_DATABASE_PORT_DEFAULT = 27017
+IO_DATABASE_NAME_DEFAULT = 'sensorlab-experiments'
 
 # I/O MQTT topics
 IO_TOPIC_PLATFORM_LOG = 'sensorlab/log/observer-{observer_id}/{module}/'
@@ -138,6 +147,13 @@ class LocationException(SensorlabException):
 class LocationSetupException(LocationException):
     """Arises when an error occurs during the location module node_setup"""
 
+class CurrentMonitorException(SensorlabException):
+    """Arises when an error occurs in the current monitoring module"""
+
+
+class CurrentMonitorSetupException(CurrentMonitorException):
+    """Arises when an error occurs during the current monitoring module node_setup"""
+
 
 class SupervisorException(SensorlabException):
     """raised when an error occurs in the supervisor module"""
@@ -151,12 +167,17 @@ class SystemException(SensorlabException):
     """raised when an error occurs in the system module"""
 
 
+class SystemCommandException(SystemException):
+    """exception raised when a command issued to the system fails"""
+
+
+
 # generic error
 ERROR_RUNTIME = "error: caught an exception while running: {0}"
 
 # command error messages
 ERROR_COMMAND_UNKNOWN = 'error: command "{0}" unknown'
-ERROR_COMMAND_FAILED = 'error: command "{0}" failed with return code: "{1}"'
+ERROR_COMMAND_FAILED = 'error: command "{0}" failed with error: "{1}"'
 ERROR_COMMAND_MISSING_ARGUMENT = 'error: command "{0}" argument(s) missing: "{1}"'
 ERROR_COMMAND_FORBIDDEN = 'error: command "{0}" forbidden, reason: {1}'
 

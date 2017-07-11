@@ -4,21 +4,16 @@ Input/Output module.
 
 `author`	:	Quentin Lampin <quentin.lampin@orange.com>
 `license`	:	MPL
-`date`		:	2016/12/05
-Copyright 2016 Orange
+`date`		:	2015/10/12
+Copyright 2015 Orange
 
 """
-import os
-import errno
 import bottle
 from pydispatch import dispatcher
 import socket
 import paho.mqtt.client as mqtt
-import yaml
 from .. import m_common
 
-# persistent configuration filename
-LAST_CONFIGURATION = os.path.join(m_common.PERSISTENCE_DIR, 'last_configuration.yml')
 
 # Input/Output states
 IO_DISCONNECTED = 0
@@ -35,31 +30,6 @@ GET_COMMANDS = [m_common.COMMAND_STATUS,
                 m_common.COMMAND_RESET]
 
 POST_COMMANDS = [m_common.COMMAND_SETUP]
-
-IO_COMMAND_ALLOWED_STATES = {
-    m_common.COMMAND_STATUS: [
-        IO_DISCONNECTED,
-        IO_READY,
-        IO_CONNECTING,
-        IO_CONNECTED,
-        IO_DISCONNECTING
-    ],
-    m_common.COMMAND_START: [
-        IO_READY,
-        IO_DISCONNECTED
-    ],
-    m_common.COMMAND_STOP: [
-        IO_CONNECTED
-    ],
-    m_common.COMMAND_RESET: [
-        IO_READY,
-        IO_DISCONNECTED
-    ],
-    m_common.COMMAND_SETUP: [
-        IO_READY,
-        IO_DISCONNECTED,
-    ]
-}
 
 # POST request arguments
 BROKER_ADDRESS = 'address'
@@ -96,19 +66,6 @@ class IO:
             m_common.COMMAND_RESET: self.reset
         }
 
-        # setup IO with last configuration, if it exists
-        if os.path.exists(LAST_CONFIGURATION):
-            try:
-                with open(LAST_CONFIGURATION, 'r') as configuration_file:
-                    configuration = yaml.load(configuration_file.read())
-                    self.setup(
-                        configuration['broker_address'],
-                        configuration['broker_port'],
-                        configuration['keepalive_period']
-                    )
-            except (OSError, yaml.YAMLError, m_common.IOSetupException):
-                pass
-
     def status(self):
         return {'state': IO_STATES[self.state],
                 'address': self.broker_address if self.broker_address else BROKER_ADDRESS_UNDEFINED,
@@ -119,56 +76,32 @@ class IO:
         self.broker_port = int(port)
         self.keepalive_period = int(keepalive_period)
         try:
-            self.client = mqtt.Client(client_id=self.client_id, clean_session=True, userdata=None, protocol='MQTTv311')
+            self.client = mqtt.Client(client_id=self.client_id, clean_session=False, userdata=None, protocol='MQTTv311')
 
             def on_connect(client, userdata, connection_result):
                 del userdata
                 if connection_result is 0:
+                    print('MQTT client connected')
                     self.state = IO_CONNECTED
                     client.subscribe(m_common.IO_TOPIC_NODE_INPUT.format(observer_id=self.node_id))
                     dispatcher.connect(self._send, signal=m_common.IO_SEND)
-                    # save configuration for next bootstrap
-                    try:
-                        os.makedirs(os.path.dirname(LAST_CONFIGURATION))
-                    except OSError as exception:
-                        if exception.errno != errno.EEXIST:
-                            raise
-                    try:
-                        with open(LAST_CONFIGURATION, 'w') as configuration_file:
-                            configuration = yaml.dump({
-                                'broker_address': self.broker_address,
-                                'broker_port': self.broker_port,
-                                'keepalive_period': self.keepalive_period
-                            })
-                            configuration_file.write(configuration)
-                    except (OSError, yaml.YAMLError):
-                        raise m_common.IOSetupException(
-                            'error while saving the configuration: {0}:{1}({2})'.format(
-                                self.broker_address,
-                                self.broker_port,
-                                self.keepalive_period
-                            )
-                        )
                 else:
-                    pass
+                    print('MQTT connection error: {0}'.format(connection_result))
 
             def on_message(client, userdata, message):
                 del client, userdata
                 self._receive(message)
 
             def on_disconnect(client, userdata, connection_result):
-                del client, userdata
-                print('MQTT disconnection: {0}'.format(connection_result))
                 if connection_result != 0:
-                    pass
+                    print('MQTT client disconnected')
 
             def on_subscribe(client, userdata, mid, granted_qos):
                 del client, userdata, mid, granted_qos
-                pass
+                print('MQTT client subscribed')
 
             def on_log(client, userdata, level, buf):
-                del client, userdata, level, buf
-                pass
+                print('MQTT log: {0}'.format(buf))
 
             self.client.on_connect = on_connect
             self.client.on_message = on_message
@@ -210,7 +143,6 @@ class IO:
     def stop(self):
         if self.client:
             self.state = IO_DISCONNECTING
-            dispatcher.disconnect(self._send, signal=m_common.IO_SEND)
             self.client.disconnect()
             self.client.loop_stop()
             self.state = IO_READY
@@ -230,13 +162,6 @@ class IO:
         if command not in GET_COMMANDS:
             bottle.response.status = m_common.REST_REQUEST_ERROR
             return m_common.ERROR_COMMAND_UNKNOWN.format(command + '(GET)')
-        # check that command is allowed in this context
-        if self.state not in IO_COMMAND_ALLOWED_STATES[command]:
-            bottle.response.status = m_common.REST_REQUEST_FORBIDDEN
-            return m_common.ERROR_COMMAND_FORBIDDEN.format(
-                command,
-                'state: {0}'.format(IO_STATES[self.state])
-            )
         # issue the command and return
         try:
             self.commands[command]()
@@ -251,13 +176,6 @@ class IO:
         if command not in POST_COMMANDS:
             bottle.response.status = m_common.REST_REQUEST_ERROR
             return m_common.ERROR_COMMAND_UNKNOWN.format(command + '(POST)')
-        # check that command is allowed in this context
-        if self.state not in IO_COMMAND_ALLOWED_STATES[command]:
-            bottle.response.status = m_common.REST_REQUEST_FORBIDDEN
-            return m_common.ERROR_COMMAND_FORBIDDEN.format(
-                command,
-                'state: {0}'.format(IO_STATES[self.state])
-            )
         # load arguments
         arguments = {}
         for required_file_argument in REQUIRED_ARGUMENTS[command]['files']:

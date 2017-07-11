@@ -91,7 +91,7 @@ class Loader:
             # file upload
             behavior_archive.save(archive_path)
         except AttributeError:
-            # file on m_system
+            # file on cache
             shutil.copy(behavior_archive, archive_path)
 
         with tarfile.open(archive_path) as archive:
