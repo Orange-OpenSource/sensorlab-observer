@@ -62,8 +62,8 @@ REQUIRED_ARGUMENTS = {
 CALIBRE_UNDEFINED = 'calibre undefined'
 SAMPLING_PERIOD_UNDEFINE = 'sampling period undefined'
 
-SHUNT_VOLTAGE_OFFSET_TERMINAL = 3
-CURRENT_OFFSET_TERMINAL = 3
+SHUNT_VOLTAGE_OFFSET_TERMINAL = 2
+CURRENT_OFFSET_TERMINAL = 2
 SHUNT_VOLTAGE_OFFSET_USB = 0
 CURRENT_OFFSET_USB = 0
 
@@ -207,11 +207,11 @@ class CurrentMonitor(threading.Thread):
             self.channel_power_enabled = False
             self.channel_timestamp_enabled = True
 
-        if self.mode == 2: #Ocsilloscope mode 0,91 kHz
+        if self.mode == 2: #Ocsilloscope mode 0,89 kHz
             self.buffer_length = 100
             self.average_number = 1
-            self.shunt_voltage_integration_time = 0.001100
-            self.bus_voltage_integration_time = 0.001100 #INUTILE?
+            self.shunt_voltage_integration_time = 0.000558
+            self.bus_voltage_integration_time = 0.000558 #INUTILE?
             self.operating_mode = 7
             self.channel_bus_voltage_enabled = True
             self.channel_shunt_voltage_enabled = True
@@ -377,11 +377,11 @@ class CurrentMonitor(threading.Thread):
     def status(self):
             
         return {                  
-            'State': CURRENT_MONITOR_STATES[self.state],
-            'Calibre [A]': self.calibre if self.calibre else CALIBRE_UNDEFINED,
-            'Mode': MODE_LIST[self.mode],
-            'Sampling period [s]': self.sampling_period if self.sampling_period else SAMPLING_PERIOD_UNDEFINE,
-            'Measurement channel ': MEASUREMENT_CHANNEL_LIST[self.measurement_channel]
+            'state': CURRENT_MONITOR_STATES[self.state],
+            'calibre': self.calibre if self.calibre else CALIBRE_UNDEFINED,
+            'mode': MODE_LIST[self.mode],
+            'sampling_period': self.sampling_period if self.sampling_period else SAMPLING_PERIOD_UNDEFINE,
+            'measurement_channel': MEASUREMENT_CHANNEL_LIST[self.measurement_channel]
             }
         ###WARNING: verifier que status fonctionne meme avant setup
         
